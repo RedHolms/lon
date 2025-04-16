@@ -10,7 +10,9 @@ int main(void) {
 
   lex_init();
   lex_parse(source);
-  // ast_parse();
+  ast_init();
+  ast_parse();
+  ast_print();
 
   return 0;
 }

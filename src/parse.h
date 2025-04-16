@@ -94,5 +94,6 @@ typedef struct ast_root_statement {
 
 void ast_init(void);
 void ast_parse(void);
+void ast_print(void);
 
 #endif // LON_PARSE_H_

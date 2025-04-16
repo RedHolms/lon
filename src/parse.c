@@ -1,5 +1,6 @@
 #include "parse.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -12,6 +13,9 @@ static ast_root_statement* rst_tail = NULL;
 static token* curtk = NULL;
 
 static int have_error = 0;
+
+// check for fail and return if failed
+#define check_fail(...) if (have_error) return __VA_ARGS__
 
 enum {
   BTP_VOID,
@@ -29,16 +33,37 @@ enum {
 
 static trie builtin_types = {0};
 
-#define ll_push(head, tail, elem) elem->next = NULL; if (tail) tail->next = elem; else head = elem
+// push to any linked list
+#define ll_push(head, tail, elem) do { elem->next = NULL; if (tail) tail->next = elem; else head = tail = elem; } while(0)
 
-#define tk_next() curtk = curtk ? curtk->next : NULL
+static inline token* tk_next(void) {
+  return curtk = curtk ? curtk->next : NULL;
+}
 
-int tk_validate(int tp) {
-  if (have_error) return 0;
+static inline int tk_check(int tp) {
   return !(have_error = !curtk || curtk->tp != tp);
 }
 
-#define tk_validate_next(tp) (tk_next(), tk_validate(tp))
+static void print_current_token() {
+  if (!curtk) {
+    puts("No token");
+    return;
+  }
+
+  if (curtk->tp <= 255) {
+    printf("Token: char (%c)\n", curtk->tp);
+  }
+  else {
+    switch (curtk->tp) {
+      case TK_NAME: printf("Token: TK_NAME\n"); break;
+      case TK_STRING: printf("Token: TK_STRING\n"); break;
+      case TK_NUMBER: printf("Token: TK_NUMBER\n"); break;
+      case TK_RET_ARROW: printf("Token: TK_RET_ARROW\n"); break;
+      case TK_FUNCTION: printf("Token: TK_FUNCTION\n"); break;
+      case TK_RETURN: printf("Token: TK_RETURN\n"); break;
+    }
+  }
+}
 
 ast_root_statement* create_rst(int tp) {
   ast_root_statement* rstmt = (ast_root_statement*)malloc(sizeof(ast_root_statement));
@@ -125,7 +150,7 @@ ast_value_type* value_type(void) {
   if (v == BTP_CONST) {
     ast_value_type* vtp = value_type();
     if (vtp->flags & VTFL_CONST) {
-      // already const
+      puts("Multiple consts");
       have_error = 1;
       free_vtp(vtp);
       return NULL;
@@ -141,15 +166,18 @@ ast_value_type* value_type(void) {
     sign = -1;
 
   if (sign != 0) {
-    if (!tk_validate(TK_NAME))
+    if (!tk_check(TK_NAME)) {
+      puts("Got unsigned/signed without a type name");
+      have_error = 1;
       return NULL;
+    }
 
     str = curtk->str;
     tk_next();
     v = trie_get(&builtin_types, str);
 
     if (v < BTP_BYTE || v > BTP_LONG) {
-      // used with not a number type
+      puts("Got unsigned/signed with not a number type");
       have_error = 1;
       return NULL;
     }
@@ -176,32 +204,33 @@ ast_value_type* value_type(void) {
       if (sign == 0) sign = -1;
       width = 3;
 
-    NUMBER_TYPE:
+    NUMBER_TYPE: {
       ast_value_type* vtp = create_vtp(VTK_NUMBER);
       vtp->v.number.width = width;
       vtp->v.number.sign = sign == -1 ? 1 : 0;
       return vtp;
+    }
 
     case BTP_CHAR:
       return create_vtp(VTK_CHAR);
   }
 
   // TODO pointers
+
+  puts("Unknown type");
   have_error = 1;
   return NULL;
 }
 
-ast_literal* literal(void) {
-
-}
-
 ast_expression* expression(void) {
+  // FIXME only literals
   ast_expression* expr = create_expr(EXPR_LITERAL);
+  expr->v.literal = (ast_literal*)malloc(sizeof(ast_literal));
 
   switch (curtk->tp) {
     case TK_NUMBER:
       expr->v.literal->tp = LIT_INT;
-      expr->v.literal->v.intVal = 0;
+      expr->v.literal->v.intVal = 0; // FIXME TODO
       break;
     case TK_STRING:
       expr->v.literal->tp = LIT_STRING;
@@ -216,7 +245,7 @@ ast_expression* expression(void) {
 ast_statement* block(void) {
   ast_statement* st_head = NULL;
   ast_statement* st_tail = NULL;
-  while (curtk) {
+  while (curtk && curtk->tp != '}') {
     switch (curtk->tp) {
       case TK_RETURN: {
         tk_next();
@@ -225,7 +254,9 @@ ast_statement* block(void) {
         ast_expression* expr = expression();
         stmt->v.expr = expr;
 
-        if (!tk_validate(';')) {
+        if (!tk_check(';')) {
+          puts("No semicolon after return");
+          have_error = 1;
           free_stmt(stmt);
           return NULL;
         }
@@ -235,26 +266,37 @@ ast_statement* block(void) {
       } break;
       case TK_NAME: {
         const char* name = curtk->str;
+        tk_next();
 
         // FIXME only call available for now
-        if (!tk_validate_next('('))
+        if (!tk_check('(')) {
+          puts("Only call available for now");
+          have_error = 1;
           return NULL;
+        }
 
         ast_statement* stmt = create_stmt(ST_EXPR);
         ast_expression* expr = create_expr(EXPR_CALL);
         stmt->v.expr = expr;
 
-        // FIXME only literals
+        // FIXME only 1 arg
 
         tk_next();
+        expr->v.call.name = strclone(name);
         expr->v.call.args = expression();
 
-        if (!tk_validate_next(')')) {
+        if (!tk_check(')')) {
+          puts("No closing parenthesis in call");
+          have_error = 1;
           free_stmt(stmt);
           return NULL;
         }
 
-        if (!tk_validate(';')) {
+        tk_next();
+
+        if (!tk_check(';')) {
+          puts("No semicolon after call");
+          have_error = 1;
           free_stmt(stmt);
           return NULL;
         }
@@ -262,10 +304,24 @@ ast_statement* block(void) {
         tk_next();
         ll_push(st_head, st_tail, stmt);
       } break;
+      default:
+        puts("Unknown token in block");
+        print_current_token();
+        have_error = 1;
+        return NULL;
     }
 
     if (have_error) return NULL;
   }
+
+  if (!tk_check('}')) {
+    puts("No end of the block");
+    have_error = 1;
+    //TODO free list
+    return NULL;
+  }
+
+  tk_next();
   return st_head;
 }
 
@@ -286,36 +342,48 @@ void ast_parse(void) {
 
   while (curtk) {
     switch (curtk->tp) {
+      default:
+        puts("Unknown token");
+        have_error = 1;
+        return;
+
       case TK_FUNCTION:
-        if (!tk_validate_next(TK_NAME))
+        tk_next();
+
+        if (!tk_check(TK_NAME)) {
+          puts("No function name");
+          have_error = 1;
           return;
+        }
 
         ast_root_statement* stmt = create_rst(RST_FUNCTION);
         stmt->v.func.name = strclone(curtk->str);
-
-        if (!tk_validate_next('(')) {
-          free_rst(stmt);
-          return;
+        
+        tk_next();
+        if (!tk_check('(')) {
+          puts("No arguments open parenthesis");
+          goto funcfail;
         }
 
         // TODO args
 
-        if (!tk_validate_next(')')) {
-          free_rst(stmt);
-          return;
+        tk_next();
+        if (!tk_check(')')) {
+          puts("No arguments close parenthesis");
+          goto funcfail;
         }
 
         tk_next();
         if (!curtk) {
-          have_error = 1;
-          free_rst(stmt);
-          return;
+          puts("No block or ret arrow");
+          goto funcfail;
         }
 
         if (curtk->tp == TK_RET_ARROW) {
-          if (!tk_validate_next(TK_NAME)) {
-            free_rst(stmt);
-            return;
+          tk_next();
+          if (!tk_check(TK_NAME)) {
+            puts("No type after ret arrow");
+            goto funcfail;
           }
 
           stmt->v.func.ret = value_type();
@@ -324,19 +392,120 @@ void ast_parse(void) {
           stmt->v.func.ret = create_vtp(VTK_VOID);
         }
 
+        if (!curtk) {
+          puts("No function body or semicolon");
+          goto funcfail;
+        }
+
         if (curtk->tp == ';') {
-          // todo pre-definition
+          // TODO pre-definition
         }
         else if (curtk->tp == '{') {
           tk_next();
           stmt->v.func.body = block();
+          if (have_error) goto funcfail;
         }
 
         ll_push(rst_head, rst_tail, stmt);
 
         break;
+      
+      funcfail:
+        have_error = 1;
+        if (stmt)
+          free_rst(stmt);
+        return;
     }
 
     if (have_error) return;
+  }
+}
+
+static void print_vt(ast_value_type* vt) {
+  if (vt->flags & VTFL_CONST)
+    printf("const ");
+  
+  switch (vt->kind) {
+    case VTK_VOID:
+      printf("void"); return;
+    case VTK_NUMBER:
+      printf("number<");
+      if (vt->v.number.sign)
+        printf("signed, ");
+      else
+        printf("unsigned, ");
+      printf("%d bits>", (1 << vt->v.number.width) << 3);
+      return;
+  }
+}
+
+static void print_lit(ast_literal* lit) {
+  switch (lit->tp) {
+    case LIT_INT:
+      printf("int<%lld>", lit->v.intVal);
+      break;
+    case LIT_STRING:
+      printf("string<%s>", lit->v.strVal);
+      break;
+  }
+}
+
+static void print_expr(ast_expression* expr) {
+  switch (expr->tp) {
+    case EXPR_CALL: {
+      printf("call %s (", expr->v.call.name);
+      ast_expression* arg = expr->v.call.args;
+      while (arg) {
+        print_expr(arg);
+        if ((arg = arg->next))
+          printf(", ");
+      }
+      printf(")");
+    } break;
+    case EXPR_LITERAL:
+      printf("literal ");
+      print_lit(expr->v.literal);
+      break;
+  }
+}
+
+static void print_block(ast_statement* st) {
+  puts("{");
+  while (st) {
+    switch (st->tp) {
+      case ST_EXPR:
+        printf("  ");
+        print_expr(st->v.expr);
+        printf(";\n");
+        break;
+      case ST_RETURN:
+        printf("  return ");
+        print_expr(st->v.expr);
+        printf(";\n");
+        break;
+    }
+    st = st->next;
+  }
+  puts("}");
+}
+
+void ast_print(void) {
+  if (have_error) {
+    puts("Have an error");
+    return;
+  }
+
+  ast_root_statement* rst = rst_head;
+  while (rst) {
+    printf("Root statement:\n");
+    switch (rst->tp) {
+      case RST_FUNCTION:
+        printf(" Function %s -> ", rst->v.func.name);
+        print_vt(rst->v.func.ret);
+        printf("\n Body:\n");
+        print_block(rst->v.func.body);
+        break;
+    }
+    rst = rst->next;
   }
 }
