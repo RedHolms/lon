@@ -1,0 +1,7 @@
+*.nogit*
+/.clangd
+/.vscode/
+/.vs/
+/.idea/
+/build/
+/output/
