@@ -509,3 +509,7 @@ void ast_print(void) {
     rst = rst->next;
   }
 }
+
+ast_root_statement* ast_result(void) {
+  return rst_head;
+}

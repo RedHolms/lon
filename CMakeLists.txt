@@ -13,6 +13,8 @@ add_executable(
   "src/trie.h"
   "src/str.c"
   "src/str.h"
+  "src/gen.c"
+  "src/gen.h"
 )
 
 set_target_properties(

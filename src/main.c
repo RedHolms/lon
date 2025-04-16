@@ -1,5 +1,6 @@
 #include "lex.h"
 #include "parse.h"
+#include "gen.h"
 
 int main(void) {
   const char* source =
@@ -12,7 +13,10 @@ int main(void) {
   lex_parse(source);
   ast_init();
   ast_parse();
-  ast_print();
+  FILE* file = fopen("out.asm", "w+");
+  codegen(file);
+  fflush(file);
+  fclose(file);
 
   return 0;
 }
