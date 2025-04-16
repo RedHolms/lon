@@ -1,0 +1,14 @@
+  LON
+
+My own compiled language, similar to C++ or Rust, but better.
+Right now the only goal is to make it work and compile simplest "hello world" program.
+
+Some of future ideas for this language:
+  - No runtime. At all. Everything will be in exe itself, importing only win32 dlls.
+  - TypeScript-like syntax (I really like it).
+  - Chars are chars, not bytes. Strings are really bad in C++. In lon I want to make.
+    string type built-in for optimization, and also make it use UTF-32 everywhere (i.e. char in lot = char32_t in c++).
+    Built-in string class allows to compile-time encode strings for better performance.
+  - Built-in lists (f.e. String[] = std::vector<std::string>). This also allows really good optimizations.
+  - Corountimes. It's just really good for performance.
+  maybe more later
