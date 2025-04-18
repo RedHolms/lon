@@ -1,7 +1,6 @@
   LON
 
 My own compiled language, similar to C++ or Rust, but better.
-Right now the only goal is to make it work and compile simplest "hello world" program.
 
 Some of future ideas for this language:
   - No runtime. At all. Everything will be in exe itself, importing only win32 dlls.
@@ -12,3 +11,6 @@ Some of future ideas for this language:
   - Built-in lists (f.e. String[] = std::vector<std::string>). This also allows really good optimizations.
   - Corountimes. It's just really good for performance.
   maybe more later
+
+Goals:
+  CURRENT : Make code prettier (it's disgusting rn)

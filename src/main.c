@@ -1,4 +1,4 @@
-#include "lex.h"
+#include "lexer.h"
 #include "parse.h"
 #include "gen.h"
 

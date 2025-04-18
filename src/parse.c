@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lex.h"
+#include "lexer.h"
 #include "trie.h"
 #include "str.h"
 
@@ -55,7 +55,7 @@ static void print_current_token() {
   }
   else {
     switch (curtk->tp) {
-      case TK_NAME: printf("Token: TK_NAME\n"); break;
+      case TK_ID: printf("Token: TK_NAME\n"); break;
       case TK_STRING: printf("Token: TK_STRING\n"); break;
       case TK_NUMBER: printf("Token: TK_NUMBER\n"); break;
       case TK_RET_ARROW: printf("Token: TK_RET_ARROW\n"); break;
@@ -166,7 +166,7 @@ ast_value_type* value_type(void) {
     sign = -1;
 
   if (sign != 0) {
-    if (!tk_check(TK_NAME)) {
+    if (!tk_check(TK_ID)) {
       puts("Got unsigned/signed without a type name");
       have_error = 1;
       return NULL;
@@ -264,7 +264,7 @@ ast_statement* block(void) {
         tk_next();
         ll_push(st_head, st_tail, stmt);
       } break;
-      case TK_NAME: {
+      case TK_ID: {
         const char* name = curtk->str;
         tk_next();
 
@@ -350,7 +350,7 @@ void ast_parse(void) {
       case TK_FUNCTION:
         tk_next();
 
-        if (!tk_check(TK_NAME)) {
+        if (!tk_check(TK_ID)) {
           puts("No function name");
           have_error = 1;
           return;
@@ -381,7 +381,7 @@ void ast_parse(void) {
 
         if (curtk->tp == TK_RET_ARROW) {
           tk_next();
-          if (!tk_check(TK_NAME)) {
+          if (!tk_check(TK_ID)) {
             puts("No type after ret arrow");
             goto funcfail;
           }
