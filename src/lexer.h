@@ -23,22 +23,26 @@ typedef enum LonTokenID {
 
 typedef struct LonToken {
   LonTokenID id;
-  int pos;
-  char* str; // must be allocated with malloc or NULL
+  int row; // starts from 1
+  int column; // starts from 1
+  char* string; // must be allocated with malloc or NULL
   struct LonToken* next;
 } LonToken;
 
 typedef struct LonLexer {
   const char* input;
   const char* p;
+  int row; // starts from 1
+  int column; // starts from 1
   trie keywords;
   LonToken* tokens;
   LonToken* tail;
+  const char* error; // NULL if no error
 } LonLexer;
 
 void LonLexer_Init(LonLexer* lex, const char* input);
 void LonLexer_Destroy(LonLexer* lex);
-void LonLexer_Parse(LonLexer* lex);
-void LonLexer_Print(LonLexer* lex, FILE* outFile, int startIndent, int indent);
+void LonLexer_Tokenize(LonLexer* lex);
+void LonLexer_Print(LonLexer* lex, FILE* outFile, int allIndent, int tokensIndent);
 
 #endif // LON_LEX_H_

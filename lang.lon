@@ -1,0 +1,11 @@
+// This file will contain pretty much everything that exists in this language
+/*
+ You can use this file as a syntax reference
+*/
+
+// Program entry point:
+function main() -> integer {
+  print("Hello, World!");
+  // Exit status code (0 = success, any other value = error)
+  return 0;
+}

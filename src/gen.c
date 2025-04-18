@@ -2,7 +2,7 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include "parse.h"
+#include "parser.h"
 #include "str.h"
 
 static FILE* out;

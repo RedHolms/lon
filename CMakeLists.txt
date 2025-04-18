@@ -5,15 +5,17 @@ project(lon C)
 add_executable(
   lon_compiler
   "src/main.c"
+  "src/ast.c"
+  "src/ast.h"
   "src/lexer.c"
   "src/lexer.h"
-  "src/parse.c"
-  "src/parse.h"
+#  "src/parse.c"
+  "src/parser.h"
   "src/trie.c"
   "src/trie.h"
   "src/str.c"
   "src/str.h"
-  "src/gen.c"
+#  "src/gen.c"
   "src/gen.h"
 )
 

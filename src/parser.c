@@ -1,4 +1,4 @@
-#include "parse.h"
+#include "parser.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,10 +7,6 @@
 #include "lexer.h"
 #include "trie.h"
 #include "str.h"
-
-static ast_root_statement* rst_head = NULL;
-static ast_root_statement* rst_tail = NULL;
-static token* curtk = NULL;
 
 static int have_error = 0;
 
