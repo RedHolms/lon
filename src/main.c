@@ -22,8 +22,11 @@ int main(void) {
   LonLexer_Tokenize(&lexer);
   LonLexer_Print(&lexer, stdout, 0, 2);
 
-//  ast_init();
-//  ast_parse();
+  LonParser parser;
+  LonParser_Init(&parser, &lexer);
+  LonParser_Parse(&parser);
+  LonParser_Print(&parser, stdout);
+
 //  FILE* file = fopen("out.asm", "w+");
 //  codegen(file);
 //  fflush(file);

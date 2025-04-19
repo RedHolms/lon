@@ -7,12 +7,9 @@
 #include "lexer.h"
 #include "trie.h"
 #include "str.h"
+#include "utils.h"
 
-static int have_error = 0;
-
-// check for fail and return if failed
-#define check_fail(...) if (have_error) return __VA_ARGS__
-
+// Built-in types
 enum {
   BTP_VOID,
   BTP_BYTE,
@@ -27,133 +24,50 @@ enum {
   BTP_CONST
 };
 
-static trie builtin_types = {0};
-
 // push to any linked list
 #define ll_push(head, tail, elem) do { elem->next = NULL; if (tail) tail->next = elem; else head = tail = elem; } while(0)
 
-static inline token* tk_next(void) {
-  return curtk = curtk ? curtk->next : NULL;
+static inline LonToken* next_tok(LonParser* parser) {
+  return parser->tk = parser->tk ? parser->tk->next : NULL;
 }
 
-static inline int tk_check(int tp) {
-  return !(have_error = !curtk || curtk->tp != tp);
+static inline int check_tok(LonParser* parser, int id) {
+  return parser->tk && parser->tk->id == id;
 }
 
-static void print_current_token() {
-  if (!curtk) {
-    puts("No token");
-    return;
+static inline int assert_tok(LonParser* parser, int id, const char* errorInfo) {
+  if (!check_tok(parser, id)) {
+    parser->error = errorInfo;
+    return 0;
   }
 
-  if (curtk->tp <= 255) {
-    printf("Token: char (%c)\n", curtk->tp);
-  }
-  else {
-    switch (curtk->tp) {
-      case TK_ID: printf("Token: TK_NAME\n"); break;
-      case TK_STRING: printf("Token: TK_STRING\n"); break;
-      case TK_NUMBER: printf("Token: TK_NUMBER\n"); break;
-      case TK_RET_ARROW: printf("Token: TK_RET_ARROW\n"); break;
-      case TK_FUNCTION: printf("Token: TK_FUNCTION\n"); break;
-      case TK_RETURN: printf("Token: TK_RETURN\n"); break;
-    }
-  }
+  return 1;
 }
 
-ast_root_statement* create_rst(int tp) {
-  ast_root_statement* rstmt = (ast_root_statement*)malloc(sizeof(ast_root_statement));
-  memset(rstmt, 0, sizeof(ast_root_statement));
-  rstmt->tp = tp;
-  return rstmt;
+static LonType* create_void_type() {
+  LonType* tp = AllocStruct(LonType);
+  tp->kind = TP_VOID;
+  return tp;
 }
 
-void free_rst(ast_root_statement* stmt) {
-  switch (stmt->tp) {
-    case RST_FUNCTION:
-      if (stmt->v.func.name)
-        free(stmt->v.func.name);
-      break;
-  }
+static LonType* parse_typename(LonParser* parser) {
+  char* str = parser->tk->string;
+  next_tok(parser);
 
-  free(stmt);
-}
-
-ast_value_type* create_vtp(int kind) {
-  ast_value_type* vtp = (ast_value_type*)malloc(sizeof(ast_value_type));
-  memset(vtp, 0, sizeof(ast_value_type));
-  vtp->kind = kind;
-  return vtp;
-}
-
-void free_vtp(ast_value_type* vtp) {
-  free(vtp);
-}
-
-ast_expression* create_expr(int tp) {
-  ast_expression* expr = (ast_expression*)malloc(sizeof(ast_expression));
-  memset(expr, 0, sizeof(ast_expression));
-  expr->tp = tp;
-  return expr;
-}
-
-void free_expr(ast_expression* expr) {
-  switch (expr->tp) {
-    case EXPR_CALL:
-      if (expr->v.call.name)
-        free(expr->v.call.name);
-      if (expr->v.call.args)
-        free(expr->v.call.args);
-      break;
-  }
-
-  if (expr->next)
-    free(expr->next);
-
-  free(expr);
-}
-
-ast_statement* create_stmt(int tp) {
-  ast_statement* stmt = (ast_statement*)malloc(sizeof(ast_statement));
-  memset(stmt, 0, sizeof(ast_statement));
-  stmt->tp = tp;
-  return stmt;
-}
-
-void free_stmt(ast_statement* stmt) {
-  switch (stmt->tp) {
-    case ST_EXPR:
-    case ST_RETURN:
-      if (stmt->v.expr)
-        free_expr(stmt->v.expr);
-      break;
-    case ST_BLOCK:
-      if (stmt->v.block)
-        free_stmt(stmt->v.block);
-      break;
-  }
-
-  free(stmt);
-}
-
-ast_value_type* value_type(void) {
-  char* str = curtk->str;
-  tk_next();
-
-  long v = trie_get(&builtin_types, str);
+  long v = trie_get(&parser->builtinTypes, str);
   int sign = 0;
 
   if (v == BTP_CONST) {
-    ast_value_type* vtp = value_type();
-    if (vtp->flags & VTFL_CONST) {
-      puts("Multiple consts");
-      have_error = 1;
-      free_vtp(vtp);
+    LonType* tp = parse_typename(parser);
+    if (tp->flags & TPF_CONST) {
+      parser->error = "Multiple const modifiers";
+      LonType_Destroy(tp);
+      free(tp);
       return NULL;
     }
 
-    vtp->flags |= VTFL_CONST;
-    return vtp;
+    tp->flags |= TPF_CONST;
+    return tp;
   }
 
   if (v == BTP_UNSIGNED)
@@ -162,19 +76,15 @@ ast_value_type* value_type(void) {
     sign = -1;
 
   if (sign != 0) {
-    if (!tk_check(TK_ID)) {
-      puts("Got unsigned/signed without a type name");
-      have_error = 1;
+    if (!assert_tok(parser, TK_ID, "Expected numeric type name"))
       return NULL;
-    }
 
-    str = curtk->str;
-    tk_next();
-    v = trie_get(&builtin_types, str);
+    str = parser->tk->string;
+    next_tok(parser);
+    v = trie_get(&parser->builtinTypes, str);
 
     if (v < BTP_BYTE || v > BTP_LONG) {
-      puts("Got unsigned/signed with not a number type");
-      have_error = 1;
+      parser->error = "Expected numeric type name, but got non-numeric type name";
       return NULL;
     }
   }
@@ -182,7 +92,7 @@ ast_value_type* value_type(void) {
   int width = 0;
   switch (v) {
     case BTP_VOID:
-      return create_vtp(VTK_VOID);
+      return create_void_type();
 
     case BTP_BYTE:
       if (sign == 0) sign = 1;
@@ -201,311 +111,336 @@ ast_value_type* value_type(void) {
       width = 3;
 
     NUMBER_TYPE: {
-      ast_value_type* vtp = create_vtp(VTK_NUMBER);
-      vtp->v.number.width = width;
-      vtp->v.number.sign = sign == -1 ? 1 : 0;
-      return vtp;
+      LonType* tp = AllocStruct(LonType);
+      tp->kind = TP_NUMBER;
+      tp->number.width = width;
+      tp->number.sign = sign == -1 ? 1 : 0;
+      return tp;
     }
 
     case BTP_CHAR:
-      return create_vtp(VTK_CHAR);
+      LonType* tp = AllocStruct(LonType);
+      tp->kind = TP_CHAR;
+      return tp;
   }
 
   // TODO pointers
 
-  puts("Unknown type");
-  have_error = 1;
+  parser->error = "Expected type name";
   return NULL;
 }
 
-ast_expression* expression(void) {
-  // FIXME only literals
-  ast_expression* expr = create_expr(EXPR_LITERAL);
-  expr->v.literal = (ast_literal*)malloc(sizeof(ast_literal));
+static LonExpression* parse_expression(LonParser* parser) {
+  LonExpression* expr = AllocStruct(LonExpression);
 
-  switch (curtk->tp) {
+  switch (parser->tk->id) {
     case TK_NUMBER:
-      expr->v.literal->tp = LIT_INT;
-      expr->v.literal->v.intVal = 0; // FIXME TODO
+      expr->tp = EXPR_LITERAL;
+      expr->literal = AllocStruct(LonLiteral);
+      expr->literal->tp = LIT_INT;
+      expr->literal->intVal = 0; // FIXME TODO
       break;
     case TK_STRING:
-      expr->v.literal->tp = LIT_STRING;
-      expr->v.literal->v.strVal = strclone(curtk->str);
+      expr->tp = EXPR_LITERAL;
+      expr->literal = AllocStruct(LonLiteral);
+      expr->literal->tp = LIT_STRING;
+      expr->literal->strVal = strclone(parser->tk->string);
       break;
+    default:
+      parser->error = "Expected valid expression";
+      free(expr);
+      return NULL;
   }
 
-  tk_next();
+  next_tok(parser);
   return expr;
 }
 
-ast_statement* block(void) {
-  ast_statement* st_head = NULL;
-  ast_statement* st_tail = NULL;
-  while (curtk && curtk->tp != '}') {
-    switch (curtk->tp) {
-      case TK_RETURN: {
-        tk_next();
+static LonStatement* parse_block(LonParser* parser) {
+  LonStatement* head = NULL;
+  LonStatement* tail = NULL;
 
-        ast_statement* stmt = create_stmt(ST_RETURN);
-        ast_expression* expr = expression();
-        stmt->v.expr = expr;
-
-        if (!tk_check(';')) {
-          puts("No semicolon after return");
-          have_error = 1;
-          free_stmt(stmt);
-          return NULL;
-        }
-
-        tk_next();
-        ll_push(st_head, st_tail, stmt);
-      } break;
+  while (parser->tk && parser->tk->id != '}') {
+    LonStatement* st = AllocStruct(LonStatement);
+    switch (parser->tk->id) {
+      case TK_RETURN:
+        next_tok(parser);
+        st->tp = ST_RETURN;
+        st->expr = parse_expression(parser);
+        break;
       case TK_ID: {
-        const char* name = curtk->str;
-        tk_next();
+        const char* name = parser->tk->string;
+        next_tok(parser);
 
         // FIXME only call available for now
-        if (!tk_check('(')) {
-          puts("Only call available for now");
-          have_error = 1;
-          return NULL;
+        if (!assert_tok(parser, '(', "Only call available for now")) {
+          free(st);
+          return head;
         }
 
-        ast_statement* stmt = create_stmt(ST_EXPR);
-        ast_expression* expr = create_expr(EXPR_CALL);
-        stmt->v.expr = expr;
+        st->tp = ST_EXPR;
+        st->expr = AllocStruct(LonExpression);
+        st->expr->tp = EXPR_CALL;
+        st->expr->call.name = strclone(name);
+        st->expr->call.args = NULL;
+        LonExpression* argsTail = NULL;
 
-        // FIXME only 1 arg
+        next_tok(parser);
 
-        tk_next();
-        expr->v.call.name = strclone(name);
-        expr->v.call.args = expression();
+        int had_comma = 1;
+        while (1) {
+          if (!parser->tk) {
+            parser->error = "Unexpected EOF in function arguments list";
+            LonStatement_Destroy(st);
+            free(st);
+            return head;
+          }
 
-        if (!tk_check(')')) {
-          puts("No closing parenthesis in call");
-          have_error = 1;
-          free_stmt(stmt);
-          return NULL;
+          if (parser->tk->id == ')')
+            break;
+
+          if (!had_comma) {
+            parser->error = "Unexpected arguments list closing parenthesis";
+            LonStatement_Destroy(st);
+            free(st);
+            return head;
+          }
+
+          had_comma = 0;
+
+          LonExpression* arg = parse_expression(parser);
+          if (!arg) {
+            LonStatement_Destroy(st);
+            free(st);
+            return head;
+          }
+
+          LinkedList_Append(st->expr->call.args, argsTail, arg);
+
+          if (check_tok(parser, ',')) {
+            had_comma = 1;
+            next_tok(parser);
+          }
         }
 
-        tk_next();
-
-        if (!tk_check(';')) {
-          puts("No semicolon after call");
-          have_error = 1;
-          free_stmt(stmt);
-          return NULL;
-        }
-
-        tk_next();
-        ll_push(st_head, st_tail, stmt);
+        next_tok(parser);
       } break;
       default:
-        puts("Unknown token in block");
-        print_current_token();
-        have_error = 1;
-        return NULL;
+        parser->error = "Expected valid statement";
+        free(st);
+        return head;
     }
 
-    if (have_error) return NULL;
+    if (!assert_tok(parser, ';', "Expected semicolon")) {
+      LonStatement_Destroy(st);
+      free(st);
+      return head;
+    }
+
+    next_tok(parser);
+    LinkedList_Append(head, tail, st);
   }
 
-  if (!tk_check('}')) {
-    puts("No end of the block");
-    have_error = 1;
-    //TODO free list
-    return NULL;
-  }
+  if (!assert_tok(parser, '}', "Unexpected EOF before block is closed"))
+    return head;
 
-  tk_next();
-  return st_head;
+  next_tok(parser);
+  return head;
 }
 
-void ast_init(void) {
-  trie_insert(&builtin_types, "void", BTP_VOID);
-  trie_insert(&builtin_types, "byte", BTP_BYTE);
-  trie_insert(&builtin_types, "short", BTP_SHORT);
-  trie_insert(&builtin_types, "integer", BTP_INTEGER);
-  trie_insert(&builtin_types, "long", BTP_LONG);
-  trie_insert(&builtin_types, "char", BTP_CHAR);
-  trie_insert(&builtin_types, "unsigned", BTP_UNSIGNED);
-  trie_insert(&builtin_types, "signed", BTP_SIGNED);
-  trie_insert(&builtin_types, "const", BTP_CONST);
+void LonParser_Init(LonParser* parser, LonLexer* lex) {
+  memset(&parser->builtinTypes, 0, sizeof(parser->builtinTypes));
+  trie_insert(&parser->builtinTypes, "void", BTP_VOID);
+  trie_insert(&parser->builtinTypes, "byte", BTP_BYTE);
+  trie_insert(&parser->builtinTypes, "short", BTP_SHORT);
+  trie_insert(&parser->builtinTypes, "integer", BTP_INTEGER);
+  trie_insert(&parser->builtinTypes, "long", BTP_LONG);
+  trie_insert(&parser->builtinTypes, "char", BTP_CHAR);
+  trie_insert(&parser->builtinTypes, "unsigned", BTP_UNSIGNED);
+  trie_insert(&parser->builtinTypes, "signed", BTP_SIGNED);
+  trie_insert(&parser->builtinTypes, "const", BTP_CONST);
+  parser->lexer = lex;
+  parser->tk = parser->lexer->tokens;
+  parser->rootStatements = parser->tail = NULL;
+  parser->error = NULL;
 }
 
-void ast_parse(void) {
-  curtk = lex_result();
+void LonParser_Destroy(LonParser* parser) {}
 
-  while (curtk) {
-    switch (curtk->tp) {
+void LonParser_Parse(LonParser* parser) {
+  while (parser->tk && !parser->error) {
+    switch (parser->tk->id) {
       default:
-        puts("Unknown token");
-        have_error = 1;
+        parser->error = "Unexpected token";
         return;
 
       case TK_FUNCTION:
-        tk_next();
+        next_tok(parser);
 
-        if (!tk_check(TK_ID)) {
-          puts("No function name");
-          have_error = 1;
+        if (!assert_tok(parser, TK_ID, "Expected function name"))
           return;
-        }
 
-        ast_root_statement* stmt = create_rst(RST_FUNCTION);
-        stmt->v.func.name = strclone(curtk->str);
-        
-        tk_next();
-        if (!tk_check('(')) {
-          puts("No arguments open parenthesis");
-          goto funcfail;
-        }
+        LonRootStatement* rst = AllocStruct(LonRootStatement);
+        rst->tp = RST_FUNCTION;
+        rst->func.name = strclone(parser->tk->string);
+
+        next_tok(parser);
+        if (!assert_tok(parser, '(', "Expected open parenthesis for arguments"))
+          goto FUNC_FAIL;
 
         // TODO args
 
-        tk_next();
-        if (!tk_check(')')) {
-          puts("No arguments close parenthesis");
-          goto funcfail;
+        next_tok(parser);
+        if (!assert_tok(parser, ')', "Expected close parenthesis for arguments"))
+          goto FUNC_FAIL;
+
+        next_tok(parser);
+        if (!parser->tk) {
+          parser->error = "Unexpected EOF. Expected return arrow or function body";
+          goto FUNC_FAIL;
         }
 
-        tk_next();
-        if (!curtk) {
-          puts("No block or ret arrow");
-          goto funcfail;
-        }
-
-        if (curtk->tp == TK_RET_ARROW) {
-          tk_next();
-          if (!tk_check(TK_ID)) {
-            puts("No type after ret arrow");
-            goto funcfail;
-          }
-
-          stmt->v.func.ret = value_type();
+        if (parser->tk->id == TK_RET_ARROW) {
+          next_tok(parser);
+          rst->func.returnType = parse_typename(parser);
+          if (parser->error)
+            goto FUNC_FAIL;
         }
         else {
-          stmt->v.func.ret = create_vtp(VTK_VOID);
+          rst->func.returnType = create_void_type();
         }
 
-        if (!curtk) {
-          puts("No function body or semicolon");
-          goto funcfail;
+        if (!parser->tk) {
+          parser->error = "Unexpected EOF. Expected return arrow or function body";
+          goto FUNC_FAIL;
         }
 
-        if (curtk->tp == ';') {
+        if (parser->tk->id == ';') {
           // TODO pre-definition
         }
-        else if (curtk->tp == '{') {
-          tk_next();
-          stmt->v.func.body = block();
-          if (have_error) goto funcfail;
+        else if (parser->tk->id == '{') {
+          next_tok(parser);
+          rst->func.body = parse_block(parser);
+          if (parser->error)
+            goto FUNC_FAIL;
         }
 
-        ll_push(rst_head, rst_tail, stmt);
-
+        LinkedList_Append(parser->rootStatements, parser->tail, rst);
         break;
       
-      funcfail:
-        have_error = 1;
-        if (stmt)
-          free_rst(stmt);
+      FUNC_FAIL:
+        LonRootStatement_Destroy(rst);
+        if (rst)
+          free(rst);
         return;
     }
-
-    if (have_error) return;
   }
 }
 
-static void print_vt(ast_value_type* vt) {
-  if (vt->flags & VTFL_CONST)
-    printf("const ");
+static void print_type(LonType* tp, FILE* outFile) {
+  if (tp->flags & TPF_CONST)
+    fprintf(outFile, "const ");
   
-  switch (vt->kind) {
-    case VTK_VOID:
-      printf("void"); return;
-    case VTK_NUMBER:
-      printf("number<");
-      if (vt->v.number.sign)
-        printf("signed, ");
+  switch (tp->kind) {
+    case TP_VOID:
+      fprintf(outFile, "void"); return;
+    case TP_NUMBER:
+      fprintf(outFile, "number<");
+      if (tp->number.sign)
+        fprintf(outFile, "signed, ");
       else
-        printf("unsigned, ");
-      printf("%d bits>", (1 << vt->v.number.width) << 3);
+        fprintf(outFile, "unsigned, ");
+      fprintf(outFile, "%d bits>", (1 << tp->number.width) << 3);
       return;
+    case TP_CHAR:
+    case TP_REFERENCE:
+    case TP_POINTER:
+      break;
   }
 }
 
-static void print_lit(ast_literal* lit) {
+static void print_lit(LonLiteral* lit, FILE* outFile) {
   switch (lit->tp) {
     case LIT_INT:
-      printf("int<%lld>", lit->v.intVal);
+      fprintf(outFile, "int<%lld>", lit->intVal);
       break;
     case LIT_STRING:
-      printf("string<%s>", lit->v.strVal);
+      fprintf(outFile, "string<%s>", lit->strVal);
+      break;
+    case LIT_FLOAT:
+      fprintf(outFile, "float<%f>", lit->fltVal);
       break;
   }
 }
 
-static void print_expr(ast_expression* expr) {
+static void print_expr(LonExpression* expr, FILE* outFile, int indent) {
   switch (expr->tp) {
     case EXPR_CALL: {
-      printf("call %s (", expr->v.call.name);
-      ast_expression* arg = expr->v.call.args;
+      fprintf(outFile, "call %s (", expr->call.name);
+      LonExpression* arg = expr->call.args;
       while (arg) {
-        print_expr(arg);
+        print_expr(arg, outFile, indent);
         if ((arg = arg->next))
-          printf(", ");
+          fprintf(outFile, ", ");
       }
-      printf(")");
+      fprintf(outFile, ")");
     } break;
     case EXPR_LITERAL:
-      printf("literal ");
-      print_lit(expr->v.literal);
+      fprintf(outFile, "literal ");
+      print_lit(expr->literal, outFile);
       break;
   }
 }
 
-static void print_block(ast_statement* st) {
-  puts("{");
+static void print_block(LonStatement* st, FILE* outFile, int indent) {
+  fprintf(outFile, "%*c{\n", indent, ' ');
+  indent += 2;
   while (st) {
     switch (st->tp) {
       case ST_EXPR:
-        printf("  ");
-        print_expr(st->v.expr);
-        printf(";\n");
+        fprintf(outFile, "%*c", indent, ' ');
+        print_expr(st->expr, outFile, indent + 2);
+        fprintf(outFile, ";\n");
         break;
       case ST_RETURN:
-        printf("  return ");
-        print_expr(st->v.expr);
-        printf(";\n");
+        fprintf(outFile, "%*creturn ", indent, ' ');
+        print_expr(st->expr, outFile, indent + 2);
+        fprintf(outFile, ";\n");
+        break;
+      case ST_BLOCK:
         break;
     }
     st = st->next;
   }
-  puts("}");
+  indent -= 2;
+  fprintf(outFile, "%*c}", indent, ' ');
 }
 
-void ast_print(void) {
-  if (have_error) {
-    puts("Have an error");
+void LonParser_Print(LonParser* parser, FILE* outFile) {
+  if (parser->error) {
+    if (parser->tk)
+      fprintf(outFile, "Parser error! At %d:%d. %s.\n", parser->tk->row, parser->tk->column, parser->error);
+    else
+      fprintf(outFile, "Parser error! %s.\n", parser->error);
     return;
   }
 
-  ast_root_statement* rst = rst_head;
+  fprintf(outFile, "Parser result:\n");
+
+  LonRootStatement* rst = parser->rootStatements;
   while (rst) {
-    printf("Root statement:\n");
+    fprintf(outFile, "  Root statement:\n");
     switch (rst->tp) {
       case RST_FUNCTION:
-        printf(" Function %s -> ", rst->v.func.name);
-        print_vt(rst->v.func.ret);
-        printf("\n Body:\n");
-        print_block(rst->v.func.body);
+        fprintf(outFile, "    Function %s -> ", rst->func.name);
+        print_type(rst->func.returnType, outFile);
+        fprintf(outFile, "\n      Body:\n");
+        print_block(rst->func.body, outFile, 8);
+        fprintf(outFile, "\n");
+        break;
+      case RST_GLOBAL_VAR:
         break;
     }
     rst = rst->next;
   }
-}
-
-ast_root_statement* ast_result(void) {
-  return rst_head;
 }

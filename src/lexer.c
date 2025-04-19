@@ -202,7 +202,7 @@ void LonLexer_Print(LonLexer* lex, FILE* outFile, int allIndent, int tokensInden
     fprintf(outFile, "%*c", allIndent, ' ');
 
   if (lex->error) {
-    fprintf(outFile, "Lexer error! At %d:%d. %s.", lex->row, lex->column, lex->error);
+    fprintf(outFile, "Lexer error! At %d:%d. %s.\n", lex->row, lex->column, lex->error);
     return;
   }
 

@@ -3,6 +3,12 @@
  You can use this file as a syntax reference
 */
 
+function another() -> short {
+  print("Hello!!!!");
+  print(0);
+  return 1;
+}
+
 // Program entry point:
 function main() -> integer {
   print("Hello, World!");

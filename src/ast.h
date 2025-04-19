@@ -2,7 +2,7 @@
 #define LON_AST_H_
 
 typedef enum LonTypeKind {
-  TP_VOID,
+  TP_VOID = 1,
   TP_NUMBER,
   TP_CHAR,
   TP_REFERENCE,
@@ -17,7 +17,6 @@ typedef enum LonTypeFlags {
 typedef struct LonType {
   LonTypeKind kind;
   LonTypeFlags flags;
-
   union {
     struct {
       char width; // to find length in bytes, do 1 << width
@@ -25,11 +24,12 @@ typedef struct LonType {
     } number;
     struct LonType* child; // pointer, reference
   };
-
 } LonType;
 
+void LonType_Destroy(LonType* tp);
+
 typedef enum LonLiteralType {
-  LIT_INT,
+  LIT_INT = 1,
   LIT_FLOAT,
   LIT_STRING
 } LonLiteralType;
@@ -43,9 +43,11 @@ typedef struct LonLiteral {
   };
 } LonLiteral;
 
+void LonLiteral_Destroy(LonLiteral* lit);
+
 typedef enum LonExpressionType {
-  EX_CALL,
-  EX_LITERAL
+  EXPR_CALL = 1,
+  EXPR_LITERAL
 } LonExpressionType;
 
 typedef struct LonExpression {
@@ -62,8 +64,10 @@ typedef struct LonExpression {
   struct LonExpression* next;
 } LonExpression;
 
+void LonExpression_Destroy(LonExpression* expr);
+
 typedef enum LobStatementType {
-  ST_EXPR,
+  ST_EXPR = 1,
   ST_BLOCK,
   ST_RETURN
 } LonStatementType;
@@ -77,8 +81,10 @@ typedef struct LonStatement {
   struct LonStatement* next;
 } LonStatement;
 
+void LonStatement_Destroy(LonStatement* st);
+
 typedef enum LonRootStatementType {
-  RST_FUNCTION,
+  RST_FUNCTION = 1,
   RST_GLOBAL_VAR
 } LonRootStatementType;
 
@@ -93,5 +99,7 @@ typedef struct LonRootStatement {
   };
   struct LonRootStatement* next;
 } LonRootStatement;
+
+void LonRootStatement_Destroy(LonRootStatement* rst);
 
 #endif // LON_AST_H_

@@ -9,7 +9,7 @@ add_executable(
   "src/ast.h"
   "src/lexer.c"
   "src/lexer.h"
-#  "src/parse.c"
+  "src/parser.c"
   "src/parser.h"
   "src/trie.c"
   "src/trie.h"
