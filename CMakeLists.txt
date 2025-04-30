@@ -15,8 +15,9 @@ add_executable(
   "src/trie.h"
   "src/str.c"
   "src/str.h"
-#  "src/gen.c"
-  "src/gen.h"
+  "src/generator.c"
+  "src/generator.h"
+  "src/utils.h"
 )
 
 target_compile_definitions(

@@ -1,6 +1,8 @@
 #ifndef LON_AST_H_
 #define LON_AST_H_
 
+#include "str.h"
+
 typedef enum LonTypeKind {
   TP_VOID = 1,
   TP_NUMBER,
@@ -39,7 +41,7 @@ typedef struct LonLiteral {
   union {
     long long intVal;
     double fltVal;
-    char* strVal;
+    OwnedStr strVal;
   };
 } LonLiteral;
 
@@ -54,7 +56,7 @@ typedef struct LonExpression {
   LonExpressionType tp;
   union {
     struct {
-      char* name;
+      OwnedStr name;
       struct LonExpression* args;
     } call;
     LonLiteral* literal;
@@ -92,7 +94,7 @@ typedef struct LonRootStatement {
   LonRootStatementType tp;
   union {
     struct {
-      char* name;
+      OwnedStr name;
       LonType* returnType;
       LonStatement* body;
     } func;

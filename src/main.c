@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include "lexer.h"
 #include "parser.h"
-#include "gen.h"
+#include "generator.h"
 #include "ast.h"
 
 int main(void) {
@@ -20,17 +20,17 @@ int main(void) {
   LonLexer lexer;
   LonLexer_Init(&lexer, buffer);
   LonLexer_Tokenize(&lexer);
-  LonLexer_Print(&lexer, stdout, 0, 2);
 
   LonParser parser;
   LonParser_Init(&parser, &lexer);
   LonParser_Parse(&parser);
-  LonParser_Print(&parser, stdout);
 
-//  FILE* file = fopen("out.asm", "w+");
-//  codegen(file);
-//  fflush(file);
-//  fclose(file);
+  FILE* file = fopen("out.asm", "w+");
+  LonGenerator gen;
+  LonGenerator_Init(&gen, parser.rootStatements, file);
+  LonGenerator_Generate(&gen);
+  fflush(file);
+  fclose(file);
 
   return 0;
 }

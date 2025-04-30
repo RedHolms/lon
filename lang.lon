@@ -5,7 +5,7 @@
 
 function another() -> short {
   print("Hello!!!!");
-  print(0);
+  //print(0);
   return 1;
 }
 

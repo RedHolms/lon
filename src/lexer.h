@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include "trie.h"
+#include "str.h"
 
 typedef enum LonTokenID {
   // all one-char tokens are just char value
@@ -25,7 +26,7 @@ typedef struct LonToken {
   LonTokenID id;
   int row; // starts from 1
   int column; // starts from 1
-  char* string; // must be allocated with malloc or NULL
+  OwnedStr string; // can be NULL
   struct LonToken* next;
 } LonToken;
 
