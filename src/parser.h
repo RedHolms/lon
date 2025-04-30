@@ -2,7 +2,7 @@
 #define LON_PARSER_H_
 
 #include "ast.h"
-#include "lexer.h"
+#include "lexer.hpp"
 #include "trie.h"
 
 typedef struct LonParser {

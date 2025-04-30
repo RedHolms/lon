@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lexer.h"
+#include "lexer.hpp"
 #include "trie.h"
 #include "str.h"
 #include "utils.h"
