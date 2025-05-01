@@ -11,9 +11,17 @@ namespace lon {
     STRING
   };
 
+  struct IntLiteral;
+  struct FloatLiteral;
+  struct StringLiteral;
+
   struct Literal {
     virtual ~Literal() = default;
     LiteralType type;
+
+    constexpr auto asInt() { return (IntLiteral*)this; }
+    constexpr auto asFloat() { return (FloatLiteral*)this; }
+    constexpr auto asString() { return (StringLiteral*)this; }
   };
 
   struct IntLiteral : Literal {

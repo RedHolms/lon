@@ -13,9 +13,15 @@ namespace lon {
     LITERAL
   };
 
+  struct CallExpression;
+  struct LiteralExpression;
+
   struct Expression {
     virtual ~Expression() = default;
     ExpressionType type;
+
+    constexpr auto asCall() { return (CallExpression*)this; }
+    constexpr auto asLiteral() { return (LiteralExpression*)this; }
   };
 
   struct CallExpression : Expression {

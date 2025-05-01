@@ -14,9 +14,17 @@ namespace lon {
     RETURN
   };
 
+  struct ExpressionStatement;
+  struct BlockStatement;
+  struct ReturnStatement;
+
   struct Statement {
     virtual ~Statement() = default;
     StatementType type;
+
+    constexpr auto asExpression() { return (ExpressionStatement*)this; }
+    constexpr auto asBlock() { return (BlockStatement*)this; }
+    constexpr auto asReturn() { return (ReturnStatement*)this; }
   };
 
   struct ExpressionStatement : Statement {

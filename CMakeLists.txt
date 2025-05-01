@@ -19,6 +19,8 @@ add_executable(
   "src/ast/types.hpp"
   "src/parser.cpp"
   "src/parser.hpp"
+  "src/generator.cpp"
+  "src/generator.hpp"
 )
 
 target_compile_definitions(

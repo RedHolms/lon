@@ -3,6 +3,7 @@
 #include <fstream>
 #include "lexer.hpp"
 #include "parser.hpp"
+#include "generator.hpp"
 
 static std::string slurpFile(std::ifstream& in) {
   std::ostringstream stream;
@@ -51,11 +52,14 @@ int main(int argc, char** argv) {
     else {
       fprintf(stderr, "Parser error at EOF: %s\n", error.what());
     }
-
     return 1;
   }
 
-  (void)0;
+  parser.debugPrint();
+
+  lon::Generator generator;
+
+  generator.generate(parser.getResult(), fopen("out.asm", "w+"));
 
   return 0;
 }

@@ -45,6 +45,11 @@ namespace lon {
     void next();
     bool end();
     void assertToken(TokenID id);
+
+    void printType(Type* tp);
+    void printLiteral(Literal* lit);
+    void printExpr(Expression* expr, int indent);
+    void printBlock(std::list<std::shared_ptr<Statement>> const& statements, int indent);
   };
 
 } // namespace lon

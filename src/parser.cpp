@@ -178,6 +178,7 @@ std::list<std::shared_ptr<Statement>> Parser::parseBlock() {
         }
 
         st->expr = std::move(expr);
+        block.emplace_back(std::move(st));
 
         next();
       } break;
@@ -245,6 +246,24 @@ void Parser::feed(std::list<Token> const& tokens) {
   }
 }
 
+void Parser::debugPrint() {
+  printf("Parser result:\n");
+
+  for (auto const& rst : m_result) {
+    printf("  Root statement:\n");
+    switch (rst->type) {
+      case RootStatementType::FUNCTION: {
+        auto fst = (FunctionRootStatement*)rst.get();
+        printf("    Function %s -> ", fst->funcName.c_str());
+        printType(fst->returnType.get());
+        printf("\n      Body:\n");
+        printBlock(fst->body, 8);
+        printf("\n");
+      } break;
+    }
+  }
+}
+
 void Parser::next() {
   if (end()) return;
   ++m_tk;
@@ -264,4 +283,82 @@ void Parser::assertToken(TokenID id) {
     std::string info = "Unexpected token. Expected " + TokenIDToString(id) + ". Got " + TokenIDToString(m_tk->id);
     throw ParserError(info.c_str(), m_tk);
   }
+}
+
+void Parser::printType(Type* tp) {
+  if (tp->flags & TPF_CONST)
+    printf("const ");
+
+  switch (tp->id) {
+    case TID_VOID:
+      printf("void"); return;
+    case TID_NUMBER: {
+      auto ntp = (NumericType*)tp;
+      printf("number<");
+      if (ntp->isSigned)
+        printf("signed, ");
+      else
+        printf("unsigned, ");
+      printf("%d bits>", (1 << ntp->width) << 3);
+    } return;
+  }
+}
+
+void Parser::printLiteral(Literal* lit) {
+  switch (lit->type) {
+    case LiteralType::INT:
+      printf("int<%lld>", lit->asInt()->value);
+      break;
+    case LiteralType::STRING:
+      printf("string<%s>", lit->asString()->value.c_str());
+      break;
+    case LiteralType::FLOAT:
+      printf("float<%f>", lit->asFloat()->value);
+      break;
+  }
+}
+
+void Parser::printExpr(Expression* expr, int indent) {
+  switch (expr->type) {
+    case ExpressionType::CALL: {
+      printf("call %s (", expr->asCall()->funcName.c_str());
+
+      bool first = true;
+      for (auto const& arg : expr->asCall()->args) {
+        printExpr(arg.get(), indent);
+
+        if (!first)
+          printf(", ");
+        first = false;
+      }
+      printf(")");
+    } break;
+    case ExpressionType::LITERAL:
+      printf("literal ");
+      printLiteral(expr->asLiteral()->value.get());
+      break;
+  }
+}
+
+void Parser::printBlock(std::list<std::shared_ptr<Statement>> const& statements, int indent) {
+  printf("%*c{\n", indent, ' ');
+  indent += 2;
+  for (auto const& st : statements) {
+    switch (st->type) {
+      case StatementType::EXPR:
+        printf("%*c", indent, ' ');
+        printExpr(((ExpressionStatement*)st.get())->expr.get(), indent + 2);
+        printf(";\n");
+        break;
+      case StatementType::RETURN:
+        printf("%*creturn ", indent, ' ');
+        printExpr(((ReturnStatement*)st.get())->value.get(), indent + 2);
+        printf(";\n");
+        break;
+      case StatementType::BLOCK:
+        break;
+    }
+  }
+  indent -= 2;
+  printf("%*c}", indent, ' ');
 }
