@@ -1,32 +1,36 @@
 cmake_minimum_required(VERSION 3.18)
 
-project(lon C)
+project(lon CXX)
+
+# fixme GCC maybe?
+if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xclang -fexceptions -Xclang -fcxx-exceptions")
+endif()
 
 add_executable(
-  lon_compiler
-  "src/main.c"
-  "src/ast.c"
-  "src/ast.h"
-  "src/lexer.c"
-  "src/lexer.h"
-  "src/parser.c"
-  "src/parser.h"
-  "src/trie.c"
-  "src/trie.h"
-  "src/str.c"
-  "src/str.h"
-  "src/generator.c"
-  "src/generator.h"
-  "src/utils.h"
+  lon_main_exe
+  "src/main.cpp"
+  "src/lexer.cpp"
+  "src/lexer.hpp"
+  "src/ast/ast.hpp"
+  "src/ast/expressions.hpp"
+  "src/ast/literals.hpp"
+  "src/ast/statements.hpp"
+  "src/ast/types.hpp"
+  "src/parser.cpp"
+  "src/parser.hpp"
+  "src/generator.cpp"
+  "src/generator.hpp"
 )
 
 target_compile_definitions(
-  lon_compiler PUBLIC
+  lon_main_exe PUBLIC
   _CRT_SECURE_NO_WARNINGS
 )
 
 set_target_properties(
-  lon_compiler PROPERTIES
+  lon_main_exe PROPERTIES
   OUTPUT_NAME "lon"
+  CXX_STANDARD 14
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/output"
 )
