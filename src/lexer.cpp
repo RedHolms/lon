@@ -7,9 +7,47 @@ using lon::Token;
 using lon::Lexer;
 
 static std::map<std::string, TokenID> KEYWORDS = {
-  { "function", lon::TK_FUNCTION },
-  { "return",   lon::TK_RETURN }
+  {"function", lon::TK_FUNCTION},
+  {"return",   lon::TK_RETURN},
+  {"const",    lon::TK_CONST},
+  {"signed",   lon::TK_SIGNED},
+  {"unsigned", lon::TK_UNSIGNED},
+  {"void",     lon::TK_VOID},
+  {"byte",     lon::TK_BYTE},
+  {"short",    lon::TK_SHORT},
+  {"integer",  lon::TK_INTEGER},
+  {"long",     lon::TK_LONG},
+  {"char",     lon::TK_CHAR},
+  {"boolean",  lon::TK_BOOLEAN},
 };
+
+std::string lon::TokenIDToString(TokenID id) {
+  if (id <= 255)
+    return std::string() += (char)id;
+
+  switch (id) {
+    case TK_ID: return "identifier";
+    case TK_STRING: return "string";
+    case TK_NUMBER: return "number";
+
+    case TK_RET_ARROW: return "->";
+
+    case TK_FUNCTION: return "keyword <function>";
+    case TK_RETURN: return "keyword <return>";
+    case TK_CONST: return "keyword <const>";
+    case TK_SIGNED: return "keyword <signed>";
+    case TK_UNSIGNED: return "keyword <unsigned>";
+    case TK_VOID: return "keyword <void>";
+    case TK_BYTE: return "keyword <byte>";
+    case TK_SHORT: return "keyword <short>";
+    case TK_INTEGER: return "keyword <integer>";
+    case TK_LONG: return "keyword <long>";
+    case TK_CHAR: return "keyword <char>";
+    case TK_BOOLEAN: return "keyword <boolean>";
+  }
+
+  return std::string("unknown<") + std::to_string(id) + '>';
+}
 
 Lexer::Lexer() {
   m_row = m_column = 0;
@@ -168,6 +206,16 @@ void Lexer::debugPrint() {
         case TK_RET_ARROW: printf("->"); break;
         case TK_FUNCTION:  printf("keyword <function>"); break;
         case TK_RETURN:    printf("keyword <return>"); break;
+        case TK_CONST:     printf("keyword <const>"); break;
+        case TK_SIGNED:    printf("keyword <signed>"); break;
+        case TK_UNSIGNED:  printf("keyword <unsigned>"); break;
+        case TK_VOID:      printf("keyword <void>"); break;
+        case TK_BYTE:      printf("keyword <byte>"); break;
+        case TK_SHORT:     printf("keyword <short>"); break;
+        case TK_INTEGER:   printf("keyword <integer>"); break;
+        case TK_LONG:      printf("keyword <long>"); break;
+        case TK_CHAR:      printf("keyword <char>"); break;
+        case TK_BOOLEAN:   printf("keyword <boolean>"); break;
         default:           printf("unknown<%d>", tk.id); break;
       }
     }

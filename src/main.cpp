@@ -2,6 +2,7 @@
 #include <sstream>
 #include <fstream>
 #include "lexer.hpp"
+#include "parser.hpp"
 
 static std::string slurpFile(std::ifstream& in) {
   std::ostringstream stream;
@@ -38,7 +39,23 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  lexer.debugPrint();
+  lon::Parser parser;
+  try {
+    parser.feed(lexer.getResult());
+  }
+  catch (lon::ParserError& error) {
+    if (error.causedToken()) {
+      auto tk = error.causedToken();
+      fprintf(stderr, "Parser error at %d:%d: %s\n", tk->row, tk->column, error.what());
+    }
+    else {
+      fprintf(stderr, "Parser error at EOF: %s\n", error.what());
+    }
+
+    return 1;
+  }
+
+  (void)0;
 
   return 0;
 }

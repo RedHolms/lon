@@ -7,12 +7,12 @@
 
 namespace lon {
 
-  enum TokenID {
+  enum {
     // all one-char tokens are just char value
     // because of that, all other tokens start from 256
 
     // literals
-    TK_ID = 256, // variable, function, etc.
+    TK_ID = 256, // variable name, function name, type name, etc.
     TK_STRING,
     TK_NUMBER,
 
@@ -21,8 +21,23 @@ namespace lon {
 
     // keywords
     TK_FUNCTION,
-    TK_RETURN
+    TK_RETURN,
+    TK_CONST,
+    TK_SIGNED,
+    TK_UNSIGNED,
+    TK_VOID,
+    TK_BYTE,
+    TK_SHORT,
+    TK_INTEGER,
+    TK_LONG,
+    TK_CHAR,
+    TK_BOOLEAN
   };
+
+  // do like that so we can implicitly convert chars to token id
+  using TokenID = short;
+
+  std::string TokenIDToString(TokenID id);
 
   struct Token {
     TokenID id;

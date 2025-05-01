@@ -12,6 +12,13 @@ add_executable(
   "src/main.cpp"
   "src/lexer.cpp"
   "src/lexer.hpp"
+  "src/ast/ast.hpp"
+  "src/ast/expressions.hpp"
+  "src/ast/literals.hpp"
+  "src/ast/statements.hpp"
+  "src/ast/types.hpp"
+  "src/parser.cpp"
+  "src/parser.hpp"
 )
 
 target_compile_definitions(

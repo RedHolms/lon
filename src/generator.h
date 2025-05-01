@@ -2,7 +2,7 @@
 #define LON_GENERATOR_H_
 
 #include <stdio.h>
-#include "ast.h"
+#include "ast.hpp"
 
 typedef struct LonImportEntry {
   OwnedStr procName;
