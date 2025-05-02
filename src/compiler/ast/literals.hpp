@@ -1,39 +1,20 @@
 #pragma once
 
-#include <stdint.h>
 #include <string>
+#include <variant>
 
 namespace lon {
 
   enum class LiteralType {
-    INT = 1,
+    INT,
     FLOAT,
     STRING
   };
 
-  struct IntLiteral;
-  struct FloatLiteral;
-  struct StringLiteral;
-
   struct Literal {
-    virtual ~Literal() = default;
-    LiteralType type;
+    LiteralType getType() const noexcept { return (LiteralType)data.index(); }
 
-    constexpr auto asInt() { return (IntLiteral*)this; }
-    constexpr auto asFloat() { return (FloatLiteral*)this; }
-    constexpr auto asString() { return (StringLiteral*)this; }
-  };
-
-  struct IntLiteral : Literal {
-    uint64_t value;
-  };
-
-  struct FloatLiteral : Literal {
-    double value;
-  };
-
-  struct StringLiteral : Literal {
-    std::string value;
+    std::variant<uint64_t, double, std::string> data;
   };
 
 } // namespace lon

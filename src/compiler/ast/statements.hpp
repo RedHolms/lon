@@ -3,63 +3,35 @@
 #include <stdint.h>
 #include <string>
 #include <list>
+#include <variant>
 #include "expressions.hpp"
 #include "types.hpp"
 
 namespace lon {
 
   enum class StatementType {
-    EXPR = 1,
-    BLOCK,
-    RETURN
+    EXPR,
+    RETURN,
+    BLOCK
   };
 
-  struct ExpressionStatement;
-  struct BlockStatement;
-  struct ReturnStatement;
+  struct FunctionDefinition;
 
   struct Statement {
-    virtual ~Statement() = default;
-    StatementType type;
+    struct Return {
+      Expression value;
+    };
 
-    constexpr auto asExpression() { return (ExpressionStatement*)this; }
-    constexpr auto asBlock() { return (BlockStatement*)this; }
-    constexpr auto asReturn() { return (ReturnStatement*)this; }
+    StatementType getType() const noexcept { return (StatementType)data.index(); }
+
+    std::variant<Expression, Return, std::list<Statement>> data;
   };
 
-  struct ExpressionStatement : Statement {
-    std::shared_ptr<Expression> expr;
-  };
-
-  struct BlockStatement : Statement {
-    std::list<std::shared_ptr<Statement>> block;
-  };
-
-  struct ReturnStatement : Statement {
-    std::shared_ptr<Expression> value;
-  };
-
-  enum class RootStatementType {
-    FUNCTION = 1,
-    GLOBAL_VAR
-  };
-
-  struct RootStatement {
-    virtual ~RootStatement() = default;
-    RootStatementType type;
-  };
-
-  struct FunctionRootStatement : RootStatement {
+  struct FunctionDefinition {
     std::string funcName;
-    std::list<std::shared_ptr<Type>> argsTypes;
-    std::shared_ptr<Type> returnType;
-    std::list<std::shared_ptr<Statement>> body;
-  };
-
-  struct GlobalVarStatement : RootStatement {
-    std::string varName;
-    std::shared_ptr<Type> varType;
-    // todo inline initialization
+    std::list<Type> argsTypes;
+    Type returnType;
+    std::list<Statement> body;
   };
 
 } // namespace lon

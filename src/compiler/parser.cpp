@@ -7,20 +7,21 @@ using lon::TypeID;
 using lon::Type;
 
 Parser::Parser(LexerResult const& lexerResult)
-  : m_lexerResult(lexerResult)
+  : m_inputFileName(lexerResult.inputFileName),
+    m_textTokens(lexerResult.tokens)
 {
-  m_tk = m_lexerResult.tokens.begin();
+  m_tk = m_textTokens.begin();
 }
 
 Parser::~Parser() = default;
 
-static std::shared_ptr<Type> makeVoid() {
-  auto type = std::make_shared<Type>();
-  type->id = lon::TID_VOID;
+static Type makeVoid() {
+  Type type;
+  type.id = lon::TID_VOID;
   return std::move(type);
 }
 
-std::shared_ptr<Type> Parser::parseTypeName() {
+Type Parser::parseTypeName() {
   if (end())
     throw ParserError("Unexpected EOF. Expected type name", -1, -1);
 
@@ -32,10 +33,10 @@ std::shared_ptr<Type> Parser::parseTypeName() {
 
   if (id == TK_CONST) {
     auto child = parseTypeName();
-    if (child->flags & TPF_CONST)
+    if (child.flags & TPF_CONST)
       throw ParserError("Multiple const modifiers", startTk);
 
-    child->flags |= TPF_CONST;
+    child.flags |= TPF_CONST;
     return child;
   }
 
@@ -78,10 +79,11 @@ std::shared_ptr<Type> Parser::parseTypeName() {
       width = 3;
 
     NUMBER_TYPE: {
-      auto type = std::make_shared<NumericType>();
-      type->id = TID_CHAR;
-      type->width = width;
-      type->isSigned = sign == -1;
+      Type type;
+      type.id = TID_NUMBER;
+      auto& number = type.data.emplace<Type::Number>();
+      number.width = width;
+      number.isSigned = sign == -1;
       return type;
     }
   }
@@ -91,41 +93,76 @@ std::shared_ptr<Type> Parser::parseTypeName() {
   throw ParserError("Invalid type name", startTk);
 }
 
-std::shared_ptr<Expression> Parser::parseExpression() {
+Expression Parser::parseExpression() {
   if (end())
     throw ParserError("Unexpected EOF. Expected expression", -1, -1);
+
+  Literal literal;
+  Expression expr;
 
   switch (m_tk->id) {
     default:
       throw ParserError("Unexpected token. Expected valid expression", m_tk);
 
-    case TK_NUMBER_INT: {
-      auto expr = std::make_shared<LiteralExpression>();
-      expr->type = ExpressionType::LITERAL;
-      auto lit = std::make_shared<IntLiteral>();
-      lit->type = LiteralType::INT;
-      lit->value = 0; // FIXME
-      expr->value = std::move(lit);
+    case TK_NUMBER_INT:
+      literal.data.emplace<uint64_t>(m_tk->intValue);
+      goto LITERAL;
+    case TK_STRING:
+      literal.data.emplace<std::string>(m_tk->strValue);
+      // fallthrough
+    LITERAL:
+      expr.data.emplace<Literal>(std::move(literal));
       next();
       return expr;
-    }
-    case TK_STRING: {
-      auto expr = std::make_shared<LiteralExpression>();
-      expr->type = ExpressionType::LITERAL;
-      auto lit = std::make_shared<StringLiteral>();
-      lit->type = LiteralType::STRING;
-      lit->value = m_tk->strValue;
-      expr->value = std::move(lit);
+
+    case TK_ID: {
+      // FIXME only call for now
+
+      std::string const& name = m_tk->strValue;
+      next();
+
+      assertToken('(');
+      next();
+
+      auto& call = expr.data.emplace<Expression::Call>();
+      call.funcName = name;
+
+      auto& args = call.args;
+
+      bool hadComma = true;
+      while (true) {
+        if (end())
+          throw ParserError("Unexpected EOF in functions arguments list", -1, -1);
+
+        if (m_tk->id == ')')
+          break;
+
+        if (!hadComma)
+          throw ParserError("Unexpected token. Expected closing parenthesis", -1, -1);
+
+        hadComma = false;
+
+        auto arg = parseExpression();
+        args.emplace_back(std::move(arg));
+
+        if (!end() && m_tk->id == ',') {
+          hadComma = true;
+          next();
+        }
+      }
+
       next();
       return expr;
     }
   }
 }
 
-std::list<std::shared_ptr<Statement>> Parser::parseBlock() {
-  std::list<std::shared_ptr<Statement>> block;
+std::list<Statement> Parser::parseBlock() {
+  std::list<Statement> block;
 
   while (!end() && m_tk->id != '}') {
+    Statement st;
+
     switch (m_tk->id) {
       default:
         throw ParserError("Unexpected token. Expected valid statement", m_tk);
@@ -133,57 +170,14 @@ std::list<std::shared_ptr<Statement>> Parser::parseBlock() {
       case TK_RETURN: {
         next();
         auto expr = parseExpression();
-        auto st = std::make_shared<ReturnStatement>();
-        st->type = StatementType::RETURN;
-        st->value = std::move(expr);
+        st.data.emplace<Statement::Return>(Statement::Return { std::move(expr) });
         block.emplace_back(std::move(st));
       } break;
 
-      case TK_ID: {
-        // FIXME only call for now
-
-        std::string const& name = m_tk->strValue;
-        next();
-
-        assertToken('(');
-        next();
-
-        auto st = std::make_shared<ExpressionStatement>();
-        st->type = StatementType::EXPR;
-
-        auto expr = std::make_shared<CallExpression>();
-        expr->type = ExpressionType::CALL;
-        expr->funcName = name;
-
-        auto& args = expr->args;
-
-        bool hadComma = true;
-        while (true) {
-          if (end())
-            throw ParserError("Unexpected EOF in functions arguments list", -1, -1);
-
-          if (m_tk->id == ')')
-            break;
-
-          if (!hadComma)
-            throw ParserError("Unexpected token. Expected closing parenthesis", -1, -1);
-
-          hadComma = false;
-
-          auto arg = parseExpression();
-          args.emplace_back(std::move(arg));
-
-          if (!end() && m_tk->id == ',') {
-            hadComma = true;
-            next();
-          }
-        }
-
-        st->expr = std::move(expr);
+      case TK_ID:
+        st.data.emplace<Expression>(parseExpression());
         block.emplace_back(std::move(st));
-
-        next();
-      } break;
+        break;
     }
 
     assertToken(';');
@@ -202,13 +196,12 @@ void Parser::parse() {
       default:
         throw ParserError("Unexpected token", m_tk);
 
-      case TK_FUNCTION:
+      case TK_FUNCTION: {
         next();
         assertToken(TK_ID);
 
-        auto rootSt = std::make_shared<FunctionRootStatement>();
-        rootSt->type = RootStatementType::FUNCTION;
-        rootSt->funcName = m_tk->strValue;
+        FunctionDefinition func;
+        func.funcName = m_tk->strValue;
 
         next();
         assertToken('(');
@@ -224,23 +217,21 @@ void Parser::parse() {
 
         if (m_tk->id == TK_RET_ARROW) {
           next();
-          rootSt->returnType = parseTypeName();
+          func.returnType = parseTypeName();
 
           if (end())
             throw ParserError("Unexpected EOF. Expected function body", -1, -1);
-        }
-        else {
-          rootSt->returnType = makeVoid();
+        } else {
+          func.returnType = makeVoid();
         }
 
         assertToken('{');
         next();
 
-        rootSt->body = parseBlock();
+        func.body = parseBlock();
 
-        m_rootStatements.emplace_back(std::move(rootSt));
-
-        break;
+        m_ast.functions.emplace_back(std::move(func));
+      } break;
     }
   }
 }
@@ -248,18 +239,13 @@ void Parser::parse() {
 void Parser::debugPrint() {
   printf("Parser result:\n");
 
-  for (auto const& rst : m_rootStatements) {
-    printf("  Root statement:\n");
-    switch (rst->type) {
-      case RootStatementType::FUNCTION: {
-        auto fst = (FunctionRootStatement*)rst.get();
-        printf("    Function %s -> ", fst->funcName.c_str());
-        printType(fst->returnType.get());
-        printf("\n      Body:\n");
-        printBlock(fst->body, 8);
-        printf("\n");
-      } break;
-    }
+  printf("  Functions:\n");
+  for (auto const& func : m_ast.functions) {
+    printf("    Function %s -> ", func.funcName.c_str());
+    printType(&func.returnType);
+    printf("\n      Body:\n");
+    printBlock(func.body, 8);
+    printf("\n");
   }
 }
 
@@ -269,7 +255,7 @@ void Parser::next() {
 }
 
 bool Parser::end() {
-  return m_tk == m_lexerResult.tokens.end();
+  return m_tk == m_textTokens.end();
 }
 
 void Parser::assertToken(TokenID id) {
@@ -284,7 +270,7 @@ void Parser::assertToken(TokenID id) {
   }
 }
 
-void Parser::printType(Type* tp) {
+void Parser::printType(Type const* tp) {
   if (tp->flags & TPF_CONST)
     printf("const ");
 
@@ -292,39 +278,40 @@ void Parser::printType(Type* tp) {
     case TID_VOID:
       printf("void"); return;
     case TID_NUMBER: {
-      auto ntp = (NumericType*)tp;
+      auto& ntp = std::get<Type::Number>(tp->data);
       printf("number<");
-      if (ntp->isSigned)
+      if (ntp.isSigned)
         printf("signed, ");
       else
         printf("unsigned, ");
-      printf("%d bits>", (1 << ntp->width) << 3);
+      printf("%d bits>", (1 << ntp.width) << 3);
     } return;
   }
 }
 
-void Parser::printLiteral(Literal* lit) {
-  switch (lit->type) {
+void Parser::printLiteral(Literal const* lit) {
+  switch (lit->getType()) {
     case LiteralType::INT:
-      printf("int<%lld>", lit->asInt()->value);
+      printf("int<%lld>", std::get<uint64_t>(lit->data));
       break;
     case LiteralType::STRING:
-      printf("string<%s>", lit->asString()->value.c_str());
+      printf("string<%s>", std::get<std::string>(lit->data).c_str());
       break;
     case LiteralType::FLOAT:
-      printf("float<%f>", lit->asFloat()->value);
+      printf("float<%f>", std::get<double>(lit->data));
       break;
   }
 }
 
-void Parser::printExpr(Expression* expr, int indent) {
-  switch (expr->type) {
+void Parser::printExpr(Expression const* expr, int indent) {
+  switch (expr->getType()) {
     case ExpressionType::CALL: {
-      printf("call %s (", expr->asCall()->funcName.c_str());
+      auto& call = std::get<Expression::Call>(expr->data);
+      printf("call %s (", call.funcName.c_str());
 
       bool first = true;
-      for (auto const& arg : expr->asCall()->args) {
-        printExpr(arg.get(), indent);
+      for (auto const& arg : call.args) {
+        printExpr(&arg, indent);
 
         if (!first)
           printf(", ");
@@ -332,36 +319,35 @@ void Parser::printExpr(Expression* expr, int indent) {
       }
       printf(")");
     } break;
-    case ExpressionType::LITERAL:
+    case ExpressionType::LITERAL: {
+      auto& lit = std::get<Literal>(expr->data);
       printf("literal ");
-      printLiteral(expr->asLiteral()->value.get());
-      break;
+      printLiteral(&lit);
+    } break;
   }
 }
 
-void Parser::printBlock(std::list<std::shared_ptr<Statement>> const& statements, int indent) {
+void Parser::printBlock(std::list<Statement> const& statements, int indent) {
   printf("%*c{\n", indent, ' ');
   indent += 2;
   for (auto const& st : statements) {
-    switch (st->type) {
-      case StatementType::EXPR:
+    switch (st.getType()) {
+      case StatementType::EXPR: {
+        auto& expr = std::get<Expression>(st.data);
         printf("%*c", indent, ' ');
-        printExpr(((ExpressionStatement*)st.get())->expr.get(), indent + 2);
+        printExpr(&expr, indent + 2);
         printf(";\n");
-        break;
-      case StatementType::RETURN:
+      } break;
+      case StatementType::RETURN: {
+        auto& ret = std::get<Statement::Return>(st.data);
         printf("%*creturn ", indent, ' ');
-        printExpr(((ReturnStatement*)st.get())->value.get(), indent + 2);
+        printExpr(&ret.value, indent + 2);
         printf(";\n");
-        break;
+      } break;
       case StatementType::BLOCK:
         break;
     }
   }
   indent -= 2;
   printf("%*c}", indent, ' ');
-}
-
-std::list<std::shared_ptr<lon::RootStatement>> lon::Parser::getResult() {
-  return m_rootStatements;
 }

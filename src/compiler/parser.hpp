@@ -29,11 +29,13 @@ namespace lon {
 
   class Parser {
   private:
-    LexerResult m_lexerResult;
-    std::list<std::shared_ptr<RootStatement>> m_rootStatements;
+    std::string m_inputFileName;
+    std::list<Token> m_textTokens;
 
     // current token
     std::list<Token>::const_iterator m_tk;
+
+    AbstractSourceTree m_ast;
 
   public:
     Parser(LexerResult const& lexerResult);
@@ -43,22 +45,23 @@ namespace lon {
     void parse();
     void debugPrint();
 
-//    AbstractSourceTree const& getAST() const;
-  std::list<std::shared_ptr<RootStatement>> getResult();
+    AbstractSourceTree const& getAST() const {
+      return m_ast;
+    }
 
   private:
-    std::shared_ptr<Type> parseTypeName();
-    std::shared_ptr<Expression> parseExpression();
-    std::list<std::shared_ptr<Statement>> parseBlock();
+    Type parseTypeName();
+    Expression parseExpression();
+    std::list<Statement> parseBlock();
 
     void next();
     bool end();
     void assertToken(TokenID id);
 
-    void printType(Type* tp);
-    void printLiteral(Literal* lit);
-    void printExpr(Expression* expr, int indent);
-    void printBlock(std::list<std::shared_ptr<Statement>> const& statements, int indent);
+    void printType(Type const* tp);
+    void printLiteral(Literal const* lit);
+    void printExpr(Expression const* expr, int indent);
+    void printBlock(std::list<Statement> const& statements, int indent);
   };
 
 } // namespace lon

@@ -9,7 +9,7 @@ namespace lon {
 
   struct AbstractSourceTree {
     std::string fileName;
-    std::list<RootStatement> rootStatements;
+    std::list<FunctionDefinition> functions;
   };
 
 }

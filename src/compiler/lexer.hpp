@@ -45,8 +45,10 @@ namespace lon {
     int row; // starts from 1
     int column; // starts from 1
     std::string strValue; // TK_ID, TK_STRING
-    uint64_t intValue; // TK_NUMBER_INT
-    double fltValue; // TK_NUMBER_FLOAT
+    union {
+      uint64_t intValue; // TK_NUMBER_INT
+      double fltValue; // TK_NUMBER_FLOAT
+    };
   };
 
   class LexerError : public std::exception {

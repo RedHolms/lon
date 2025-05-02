@@ -383,19 +383,21 @@ void Lexer::debugPrint() {
 }
 
 void Lexer::token(TokenID id) {
-  m_tokens.push_back(Token { id, m_tkRow, m_tkColumn, "", 0, 0.0 });
+  m_tokens.push_back(Token { id, m_tkRow, m_tkColumn, "", 0 });
 }
 
 void Lexer::token(TokenID id, std::string_view value) {
-  m_tokens.push_back(Token { id, m_tkRow, m_tkColumn, std::string(value), 0, 0.0 });
+  m_tokens.push_back(Token { id, m_tkRow, m_tkColumn, std::string(value), 0 });
 }
 
 void Lexer::token(TokenID id, uint64_t value) {
-  m_tokens.push_back(Token { id, m_tkRow, m_tkColumn, "", value, 0.0 });
+  m_tokens.push_back(Token { id, m_tkRow, m_tkColumn, "", value });
 }
 
 void Lexer::token(TokenID id, double value) {
-  m_tokens.push_back(Token { id, m_tkRow, m_tkColumn, "", 0, value });
+  Token token { id, m_tkRow, m_tkColumn, "", 0 };
+  token.fltValue = value;
+  m_tokens.emplace_back(std::move(token));
 }
 
 inline void Lexer::next(int amount) {

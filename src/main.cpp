@@ -3,7 +3,7 @@
 #include <fstream>
 #include "compiler/lexer.hpp"
 #include "compiler/parser.hpp"
-#include "compiler/generator.hpp"
+//#include "compiler/generator.hpp"
 
 int main(int argc, char** argv) {
   if (argc < 2) {
@@ -43,9 +43,9 @@ int main(int argc, char** argv) {
 
   parser.debugPrint();
 
-  lon::Generator generator;
+//  lon::Generator generator;
 
-  generator.generate(parser.getResult(), fopen("out.asm", "w+"));
+//  generator.generate(parser.getResult(), fopen("out.asm", "w+"));
 
   return 0;
 }

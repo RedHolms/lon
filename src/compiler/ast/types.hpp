@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <variant>
 
 namespace lon {
 
@@ -26,18 +27,16 @@ namespace lon {
   using TypeID = uint32_t;
 
   struct Type {
-    virtual ~Type() = default;
-    TypeID id;
-    TypeFlags flags;
-  };
+    struct Empty {};
 
-  struct NumericType : Type {
-    uint8_t width; // width in bytes = 1 << width
-    bool isSigned;
-  };
+    struct Number {
+      uint8_t width; // width in bytes = 1 << width
+      bool isSigned;
+    };
 
-  struct TypeWithChild : Type {
-    std::shared_ptr<Type> child;
+    TypeID id = TID_VOID;
+    TypeFlags flags = 0;
+    std::variant<Empty, Number, std::unique_ptr<Type>> data;
   };
 
 } // namespace lon

@@ -1,36 +1,26 @@
 #pragma once
 
-#include <stdint.h>
 #include <list>
 #include <string>
-#include <memory>
+#include <variant>
 #include "literals.hpp"
 
 namespace lon {
 
   enum class ExpressionType {
-    CALL = 1,
+    CALL,
     LITERAL
   };
 
-  struct CallExpression;
-  struct LiteralExpression;
-
   struct Expression {
-    virtual ~Expression() = default;
-    ExpressionType type;
+    struct Call {
+      std::string funcName;
+      std::list<Expression> args;
+    };
 
-    constexpr auto asCall() { return (CallExpression*)this; }
-    constexpr auto asLiteral() { return (LiteralExpression*)this; }
-  };
+    ExpressionType getType() const noexcept { return (ExpressionType)data.index(); }
 
-  struct CallExpression : Expression {
-    std::string funcName;
-    std::list<std::shared_ptr<Expression>> args;
-  };
-
-  struct LiteralExpression : Expression {
-    std::shared_ptr<Literal> value;
+    std::variant<Call, Literal> data;
   };
 
 } // namespace lon
