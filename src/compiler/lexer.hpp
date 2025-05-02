@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 #include <string>
-#include <string_view>
 #include <list>
 
 namespace lon {
@@ -14,7 +13,8 @@ namespace lon {
     // literals
     TK_ID = 256, // variable name, function name, type name, etc.
     TK_STRING,
-    TK_NUMBER,
+    TK_NUMBER_INT,
+    TK_NUMBER_FLOAT,
 
     // multiple chars
     TK_RET_ARROW,
@@ -22,6 +22,7 @@ namespace lon {
     // keywords
     TK_FUNCTION,
     TK_RETURN,
+
     TK_CONST,
     TK_SIGNED,
     TK_UNSIGNED,
@@ -43,7 +44,9 @@ namespace lon {
     TokenID id;
     int row; // starts from 1
     int column; // starts from 1
-    std::string value; // can be empty
+    std::string strValue; // TK_ID, TK_STRING
+    uint64_t intValue; // TK_NUMBER_INT
+    double fltValue; // TK_NUMBER_FLOAT
   };
 
   class LexerError : public std::exception {
@@ -59,30 +62,47 @@ namespace lon {
     inline int column() const { return m_column; }
   };
 
+  struct LexerResult {
+    std::string inputFileName;
+    std::list<Token> tokens;
+  };
+
   class Lexer {
   private:
-    std::list<Token> m_tokens;
+    std::string m_inputFileName;
+    std::string m_content;
+
+    // position of m_pt
     int m_row;
     int m_column;
+
+    // position of the current token beginning
+    int m_tkRow;
+    int m_tkColumn;
 
     // current char pointer
     const char* m_pt;
 
+    std::list<Token> m_tokens;
+
   public:
-    Lexer();
+    Lexer(std::string_view inputFilePath, std::string_view replaceContent = "");
     ~Lexer();
 
   public:
-    void feed(const char* input);
+    void tokenize();
     void debugPrint();
 
-    std::list<Token> const& getResult() const {
-      return m_tokens;
-    }
+    LexerResult getResult() const;
 
   private:
-    void token(TokenID id, const char* value, int row, int column);
-    void next();
+    void processNumber();
+
+    void token(TokenID id);
+    void token(TokenID id, std::string_view value);
+    void token(TokenID id, uint64_t value);
+    void token(TokenID id, double value);
+    void next(int amount = 1);
   };
 
 } // namespace lon

@@ -6,8 +6,10 @@ using lon::Parser;
 using lon::TypeID;
 using lon::Type;
 
-Parser::Parser() {
-  m_inputTokens = nullptr;
+Parser::Parser(LexerResult const& lexerResult)
+  : m_lexerResult(lexerResult)
+{
+  m_tk = m_lexerResult.tokens.begin();
 }
 
 Parser::~Parser() = default;
@@ -20,7 +22,7 @@ static std::shared_ptr<Type> makeVoid() {
 
 std::shared_ptr<Type> Parser::parseTypeName() {
   if (end())
-    throw ParserError("Unexpected EOF. Expected type name", nullptr);
+    throw ParserError("Unexpected EOF. Expected type name", -1, -1);
 
   auto startTk = m_tk;
   TokenID id = m_tk->id;
@@ -44,7 +46,7 @@ std::shared_ptr<Type> Parser::parseTypeName() {
 
   if (sign != 0) {
     if (end())
-      throw ParserError("Unexpected EOF. Expected numeric type name", nullptr);
+      throw ParserError("Unexpected EOF. Expected numeric type name", -1, -1);
 
     id = m_tk->id;
 
@@ -91,13 +93,13 @@ std::shared_ptr<Type> Parser::parseTypeName() {
 
 std::shared_ptr<Expression> Parser::parseExpression() {
   if (end())
-    throw ParserError("Unexpected EOF. Expected expression", nullptr);
+    throw ParserError("Unexpected EOF. Expected expression", -1, -1);
 
   switch (m_tk->id) {
     default:
       throw ParserError("Unexpected token. Expected valid expression", m_tk);
 
-    case TK_NUMBER: {
+    case TK_NUMBER_INT: {
       auto expr = std::make_shared<LiteralExpression>();
       expr->type = ExpressionType::LITERAL;
       auto lit = std::make_shared<IntLiteral>();
@@ -112,7 +114,7 @@ std::shared_ptr<Expression> Parser::parseExpression() {
       expr->type = ExpressionType::LITERAL;
       auto lit = std::make_shared<StringLiteral>();
       lit->type = LiteralType::STRING;
-      lit->value = m_tk->value;
+      lit->value = m_tk->strValue;
       expr->value = std::move(lit);
       next();
       return expr;
@@ -140,7 +142,7 @@ std::list<std::shared_ptr<Statement>> Parser::parseBlock() {
       case TK_ID: {
         // FIXME only call for now
 
-        std::string const& name = m_tk->value;
+        std::string const& name = m_tk->strValue;
         next();
 
         assertToken('(');
@@ -158,13 +160,13 @@ std::list<std::shared_ptr<Statement>> Parser::parseBlock() {
         bool hadComma = true;
         while (true) {
           if (end())
-            throw ParserError("Unexpected EOF in functions arguments list", nullptr);
+            throw ParserError("Unexpected EOF in functions arguments list", -1, -1);
 
           if (m_tk->id == ')')
             break;
 
           if (!hadComma)
-            throw ParserError("Unexpected token. Expected closing parenthesis", nullptr);
+            throw ParserError("Unexpected token. Expected closing parenthesis", -1, -1);
 
           hadComma = false;
 
@@ -194,10 +196,7 @@ std::list<std::shared_ptr<Statement>> Parser::parseBlock() {
   return block;
 }
 
-void Parser::feed(std::list<Token> const& tokens) {
-  m_inputTokens = &tokens;
-  m_tk = m_inputTokens->begin();
-
+void Parser::parse() {
   while (!end()) {
     switch (m_tk->id) {
       default:
@@ -209,7 +208,7 @@ void Parser::feed(std::list<Token> const& tokens) {
 
         auto rootSt = std::make_shared<FunctionRootStatement>();
         rootSt->type = RootStatementType::FUNCTION;
-        rootSt->funcName = m_tk->value;
+        rootSt->funcName = m_tk->strValue;
 
         next();
         assertToken('(');
@@ -221,14 +220,14 @@ void Parser::feed(std::list<Token> const& tokens) {
 
         next();
         if (end())
-          throw ParserError("Unexpected EOF. Expected return arrow or function body", nullptr);
+          throw ParserError("Unexpected EOF. Expected return arrow or function body", -1, -1);
 
         if (m_tk->id == TK_RET_ARROW) {
           next();
           rootSt->returnType = parseTypeName();
 
           if (end())
-            throw ParserError("Unexpected EOF. Expected function body", nullptr);
+            throw ParserError("Unexpected EOF. Expected function body", -1, -1);
         }
         else {
           rootSt->returnType = makeVoid();
@@ -239,7 +238,7 @@ void Parser::feed(std::list<Token> const& tokens) {
 
         rootSt->body = parseBlock();
 
-        m_result.emplace_back(std::move(rootSt));
+        m_rootStatements.emplace_back(std::move(rootSt));
 
         break;
     }
@@ -249,7 +248,7 @@ void Parser::feed(std::list<Token> const& tokens) {
 void Parser::debugPrint() {
   printf("Parser result:\n");
 
-  for (auto const& rst : m_result) {
+  for (auto const& rst : m_rootStatements) {
     printf("  Root statement:\n");
     switch (rst->type) {
       case RootStatementType::FUNCTION: {
@@ -270,13 +269,13 @@ void Parser::next() {
 }
 
 bool Parser::end() {
-  return !m_inputTokens || m_tk == m_inputTokens->end();
+  return m_tk == m_lexerResult.tokens.end();
 }
 
 void Parser::assertToken(TokenID id) {
   if (end()) {
     std::string info = "Unexpected EOF. Expected " + TokenIDToString(id);
-    throw ParserError(info.c_str(), nullptr);
+    throw ParserError(info.c_str(), -1, -1);
   }
 
   if (m_tk->id != id) {
@@ -361,4 +360,8 @@ void Parser::printBlock(std::list<std::shared_ptr<Statement>> const& statements,
   }
   indent -= 2;
   printf("%*c}", indent, ' ');
+}
+
+std::list<std::shared_ptr<lon::RootStatement>> lon::Parser::getResult() {
+  return m_rootStatements;
 }

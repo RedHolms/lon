@@ -4,6 +4,9 @@
 */
 
 function another() -> short {
+  //0x052F0;
+  //0b101;
+  //-0xFFFFFFFFFFFFFFFF;
   print("Hello!!!!");
   //print(0);
   return 1;

@@ -10,17 +10,18 @@ endif()
 add_executable(
   lon_main_exe
   "src/main.cpp"
-  "src/lexer.cpp"
-  "src/lexer.hpp"
-  "src/ast/ast.hpp"
-  "src/ast/expressions.hpp"
-  "src/ast/literals.hpp"
-  "src/ast/statements.hpp"
-  "src/ast/types.hpp"
-  "src/parser.cpp"
-  "src/parser.hpp"
-  "src/generator.cpp"
-  "src/generator.hpp"
+  "src/compiler/lexer.cpp"
+  "src/compiler/lexer.hpp"
+  "src/compiler/ast/ast.hpp"
+  "src/compiler/ast/expressions.hpp"
+  "src/compiler/ast/literals.hpp"
+  "src/compiler/ast/statements.hpp"
+  "src/compiler/ast/types.hpp"
+  "src/compiler/parser.cpp"
+  "src/compiler/parser.hpp"
+  "src/compiler/generator.cpp"
+  "src/compiler/generator.hpp"
+  "src/utils.hpp"
 )
 
 target_compile_definitions(
@@ -31,6 +32,6 @@ target_compile_definitions(
 set_target_properties(
   lon_main_exe PROPERTIES
   OUTPUT_NAME "lon"
-  CXX_STANDARD 14
+  CXX_STANDARD 17
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/output"
 )

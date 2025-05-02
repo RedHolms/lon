@@ -1,15 +1,9 @@
 #include <stdio.h>
 #include <sstream>
 #include <fstream>
-#include "lexer.hpp"
-#include "parser.hpp"
-#include "generator.hpp"
-
-static std::string slurpFile(std::ifstream& in) {
-  std::ostringstream stream;
-  stream << in.rdbuf();
-  return stream.str();
-}
+#include "compiler/lexer.hpp"
+#include "compiler/parser.hpp"
+#include "compiler/generator.hpp"
 
 int main(int argc, char** argv) {
   if (argc < 2) {
@@ -17,37 +11,29 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  std::ifstream file;
+  lon::LexerResult lexerResult;
   try {
-    file.exceptions(std::ifstream::failbit);
-    file.open(argv[1], std::ios::in);
-  }
-  catch (std::exception& error) {
-    fprintf(stderr, "failed to open input file: %s\n", error.what());
-    return 1;
-  }
-
-  std::string content = slurpFile(file);
-  file.close();
-
-  lon::Lexer lexer;
-
-  try {
-    lexer.feed(content.c_str());
+    lon::Lexer lexer(argv[1]);
+    lexer.tokenize();
+    lexerResult = lexer.getResult();
   }
   catch (lon::LexerError& error) {
     fprintf(stderr, "Syntax error at %d:%d: %s\n", error.row(), error.column(), error.what());
     return 1;
   }
+  catch (std::exception& error) {
+    fprintf(stderr, "%s\n", error.what());
+    return 1;
+  }
 
-  lon::Parser parser;
+  lon::Parser parser(lexerResult);
+
   try {
-    parser.feed(lexer.getResult());
+    parser.parse();
   }
   catch (lon::ParserError& error) {
-    if (error.causedToken()) {
-      auto tk = error.causedToken();
-      fprintf(stderr, "Parser error at %d:%d: %s\n", tk->row, tk->column, error.what());
+    if (error.row() != -1) {
+      fprintf(stderr, "Parser error at %d:%d: %s\n", error.row(), error.column(), error.what());
     }
     else {
       fprintf(stderr, "Parser error at EOF: %s\n", error.what());

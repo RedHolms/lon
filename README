@@ -11,6 +11,3 @@ Some of future ideas for this language:
   - Built-in lists (f.e. String[] = std::vector<std::string>). This also allows really good optimizations.
   - Corountimes. It's just really good for performance.
   maybe more later
-
-Goals:
-  CURRENT : Make code prettier (it's disgusting rn)
