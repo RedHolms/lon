@@ -20,7 +20,6 @@ namespace lon {
   class Generator {
   private:
     FILE* m_outFile;
-    std::list<std::shared_ptr<RootStatement>> const* m_rootStatements;
 
     std::list<BinaryData> m_data;
     std::list<ImportLibrary> m_imports;
@@ -32,15 +31,15 @@ namespace lon {
 
   public:
     void generate(
-      std::list<std::shared_ptr<RootStatement>> const& rootStatements,
+      AbstractSourceTree const& ast,
       FILE* outFile
     );
 
   private:
-    void genCall(const char* name, std::list<std::shared_ptr<Expression>> const& args, int dest);
-    void genLiteral(Literal* lit, int dest);
-    void genExpression(Expression* expr, int dest);
-    void genFunction(FunctionRootStatement* func);
+    void genCall(const char* name, std::list<Expression> const& args, int dest);
+    void genLiteral(Literal const* lit, int dest);
+    void genExpression(Expression const* expr, int dest);
+    void genFunction(FunctionDefinition const* func);
 
     void importProc(const char* libName, const char* procName);
     void useData(const char* name, const void* data, int length);

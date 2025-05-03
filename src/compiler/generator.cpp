@@ -28,14 +28,10 @@ static const char* __builtin_print =
   "  call [WriteConsoleA]\n"
   "  ret\n";
 
-Generator::Generator() {
-  m_rootStatements = nullptr;
-}
-
+Generator::Generator() = default;
 Generator::~Generator() = default;
 
-void Generator::generate(const std::list<std::shared_ptr<RootStatement>>& rootStatements, FILE* outFile) {
-  m_rootStatements = &rootStatements;
+void Generator::generate(AbstractSourceTree const& ast, FILE* outFile) {
   m_outFile = outFile;
 
   m_data.clear();
@@ -55,8 +51,8 @@ void Generator::generate(const std::list<std::shared_ptr<RootStatement>>& rootSt
 
   out("%s", __builtin_print);
 
-  for (auto const& rst : rootStatements)
-    genFunction((FunctionRootStatement*)rst.get());
+  for (auto const& func : ast.functions)
+    genFunction(&func);
 
   // entry point
   out("__entry: ; ENTRY POINT\n");
@@ -112,12 +108,13 @@ void Generator::generate(const std::list<std::shared_ptr<RootStatement>>& rootSt
   }
 }
 
-void Generator::genCall(const char* name, std::list<std::shared_ptr<Expression>> const& args, int dest) {
+void Generator::genCall(const char* name, std::list<Expression> const& args, int dest) {
   if (strcmp(name, "print") == 0) {
     // FIXME no checks
-    auto arg = (LiteralExpression*)args.begin()->get();
-    genExpression(arg, DEST_REG_B);
-    out("  mov ecx, %d\n", ((StringLiteral*)arg->value.get())->value.length());
+    // FIXME hardcode
+    auto& arg = *args.begin();
+    genExpression(&arg, DEST_REG_B);
+    out("  mov ecx, %d\n", std::get<std::string>(std::get<Literal>(arg.data).data).length());
     out("  call __builtin_print\n");
     switch (dest) {
       case DEST_REG_B:
@@ -131,10 +128,10 @@ void Generator::genCall(const char* name, std::list<std::shared_ptr<Expression>>
   printf("Unknown function %s\n", name);
 }
 
-void Generator::genLiteral(Literal* lit, int dest) {
+void Generator::genLiteral(Literal const* lit, int dest) {
   if (
-    lit->type == LiteralType::INT &&
-    ((IntLiteral*)lit)->value == 0
+    lit->getType() == LiteralType::INT &&
+    std::get<uint64_t>(lit->data) == 0
   ) {
     switch (dest) {
       case DEST_REG_A: out("  xor eax, eax\n"); break;
@@ -150,15 +147,15 @@ void Generator::genLiteral(Literal* lit, int dest) {
     case DEST_REG_C: out("  mov ecx, "); break;
   }
 
-  switch (lit->type) {
+  switch (lit->getType()) {
     case LiteralType::INT:
-      out("%lld\n", ((IntLiteral*)lit)->value); break;
+      out("%lld\n", std::get<uint64_t>(lit->data)); break;
     case LiteralType::STRING: {
-      auto strLit = (StringLiteral*)lit;
+      auto& str = std::get<std::string>(lit->data);
       int id = m_stringsCount++;
       char buffer[32];
       sprintf(buffer, "str%d", id);
-      useData(buffer, strLit->value.data(), strLit->value.length());
+      useData(buffer, str.data(), str.length() + 1);
       out("%s\n", buffer);
     } break;
     case LiteralType::FLOAT:
@@ -166,29 +163,29 @@ void Generator::genLiteral(Literal* lit, int dest) {
   }
 }
 
-void Generator::genExpression(Expression* expr, int dest) {
-  switch (expr->type) {
+void Generator::genExpression(Expression const* expr, int dest) {
+  switch (expr->getType()) {
     case ExpressionType::CALL: {
-      auto callExpr = (CallExpression*)expr;
-      genCall(callExpr->funcName.c_str(), callExpr->args, dest);
+      auto& call = std::get<Expression::Call>(expr->data);
+      genCall(call.funcName.c_str(), call.args, dest);
     } break;
     case ExpressionType::LITERAL: {
-      genLiteral(((LiteralExpression*)expr)->value.get(), dest);
+      genLiteral(&std::get<Literal>(expr->data), dest);
     } break;
   }
 }
 
-void Generator::genFunction(FunctionRootStatement* func) {
+void Generator::genFunction(FunctionDefinition const* func) {
   out("%s: ; func\n", func->funcName.c_str());
 
   for (auto& st : func->body) {
-    switch (st->type) {
+    switch (st.getType()) {
       case StatementType::RETURN:
-        genExpression(((ReturnStatement*)st.get())->value.get(), DEST_RETURN);
+        genExpression(&std::get<Statement::Return>(st.data).value, DEST_RETURN);
         out("  ret\n");
         break;
       case StatementType::EXPR:
-        genExpression(((ExpressionStatement*)st.get())->expr.get(), DEST_NONE);
+        genExpression(&std::get<Expression>(st.data), DEST_NONE);
         break;
       case StatementType::BLOCK:
         //todo
