@@ -10,20 +10,21 @@ enum {
   DEST_REG_A,
   DEST_REG_B,
   DEST_REG_C,
+  DEST_REG_D,
 
   DEST_RETURN = DEST_REG_A
 };
 
-// ebx - string pointer
-// ecx - string length
+// ecx - string pointer
+// edx - string length
 static const char* __builtin_print =
   "__builtin_print: ; builtin\n"
   "  push -11\n"
   "  call [GetStdHandle]\n"
   "  push 0\n"
   "  push 0\n"
+  "  push edx\n"
   "  push ecx\n"
-  "  push ebx\n"
   "  push eax\n"
   "  call [WriteConsoleA]\n"
   "  ret\n";
@@ -110,18 +111,35 @@ void Generator::generate(AbstractSourceTree const& ast, FILE* outFile) {
 
 void Generator::genCall(const char* name, std::list<Expression> const& args, int dest) {
   if (strcmp(name, "print") == 0) {
-    // FIXME no checks
-    // FIXME hardcode
+    int idx = DEST_REG_C;
+
+    if (args.size() != 1) {
+      out("ERROR >> INVALID ARGUMENTS COUNT FOR PRINT CALL\n");
+      return;
+    }
+
     auto& arg = *args.begin();
-    genExpression(&arg, DEST_REG_B);
-    out("  mov ecx, %d\n", std::get<std::string>(std::get<Literal>(arg.data).data).length());
+    if (arg.getType() != ExpressionType::LITERAL) {
+      out("ERROR >> INVALID ARGUMENT FOR PRINT CALL\n");
+      return;
+    }
+
+    auto& lit = std::get<Literal>(arg.data);
+    if (lit.getType() != LiteralType::STRING) {
+      out("ERROR >> INVALID ARGUMENT FOR PRINT CALL\n");
+      return;
+    }
+
+    genExpression(&arg, DEST_REG_C);
+
+    out("  mov edx, %d\n", std::get<std::string>(lit.data).length());
     out("  call __builtin_print\n");
     switch (dest) {
-      case DEST_REG_B:
-        out("  mov ebx, eax\n"); break;
-      case DEST_REG_C:
-        out("  mov ecx, eax\n"); break;
+      case DEST_REG_B: out("  mov ebx, eax\n"); break;
+      case DEST_REG_C: out("  mov ecx, eax\n"); break;
+      case DEST_REG_D: out("  mov edx, eax\n"); break;
     }
+
     return;
   }
 
@@ -137,6 +155,7 @@ void Generator::genLiteral(Literal const* lit, int dest) {
       case DEST_REG_A: out("  xor eax, eax\n"); break;
       case DEST_REG_B: out("  xor ebx, ebx\n"); break;
       case DEST_REG_C: out("  xor ecx, ecx\n"); break;
+      case DEST_REG_D: out("  xor edx, edx\n"); break;
     }
     return;
   }
@@ -145,6 +164,7 @@ void Generator::genLiteral(Literal const* lit, int dest) {
     case DEST_REG_A: out("  mov eax, "); break;
     case DEST_REG_B: out("  mov ebx, "); break;
     case DEST_REG_C: out("  mov ecx, "); break;
+    case DEST_REG_D: out("  mov edx, "); break;
   }
 
   switch (lit->getType()) {

@@ -11,3 +11,9 @@ Some of future ideas for this language:
   - Built-in lists (f.e. String[] = std::vector<std::string>). This also allows really good optimizations.
   - Corountimes. It's just really good for performance.
   maybe more later
+
+Currently as we're on 32 bit only, we're using fastcall (ecx, edx, stack) calling convention. In future I may add support of other
+
+CURRENT GOAL:
+  I really think about switching to Xbyak or something similar that allows to easily generate asm from code.
+  This will require our own linker but I think it's fine
