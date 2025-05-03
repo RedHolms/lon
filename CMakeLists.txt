@@ -1,11 +1,20 @@
 cmake_minimum_required(VERSION 3.18)
 
+include(FetchContent)
+
 project(lon CXX)
 
 # fixme GCC maybe?
 if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xclang -fexceptions -Xclang -fcxx-exceptions")
 endif()
+
+FetchContent_Declare(
+  xbyak
+  GIT_REPOSITORY https://github.com/herumi/xbyak.git
+  GIT_TAG        44a72f369268f7d552650891b296693e91db86bb
+)
+FetchContent_MakeAvailable(xbyak)
 
 add_executable(
   lon_main_exe
@@ -24,8 +33,13 @@ add_executable(
   "src/utils.hpp"
 )
 
+target_link_libraries(
+  lon_main_exe PRIVATE
+  xbyak
+)
+
 target_compile_definitions(
-  lon_main_exe PUBLIC
+  lon_main_exe PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 

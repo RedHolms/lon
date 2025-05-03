@@ -2,6 +2,7 @@
 
 #include <stdarg.h>
 #include <algorithm>
+#include <xbyak/xbyak.h>
 
 using lon::Generator;
 
